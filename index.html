@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Copilot Practice Course</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .course-status {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .section-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .section-header h2 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .section-subtitle {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .section-content {
+            padding: 25px;
+        }
+
+        .module {
+            margin-bottom: 20px;
+        }
+
+        .module:last-child {
+            margin-bottom: 0;
+        }
+
+        .module-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.05em;
+        }
+
+        .module-description {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .module-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .link-btn {
+            display: inline-block;
+            padding: 8px 14px;
+            background: #f0f0f0;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: 1px solid #e0e0e0;
+        }
+
+        .link-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .day-separator {
+            text-align: center;
+            color: white;
+            font-size: 2em;
+            font-weight: bold;
+            margin: 50px 0 30px;
+            opacity: 0.9;
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-item h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .stat-item p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .toc {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .toc h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .toc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .toc-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .toc-item:hover {
+            background: #e8eaff;
+            transform: translateX(5px);
+        }
+
+        .toc-item a {
+            text-decoration: none;
+            color: #333;
+            display: block;
+            font-weight: 500;
+        }
+
+        .toc-item-day {
+            color: #667eea;
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            opacity: 0.8;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .content {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 GitHub Copilot Practice Course</h1>
+            <p class="subtitle">Comprehensive learning journey from fundamentals to advanced development</p>
+            <div class="course-status">✅ All Course Modules Available</div>
+        </header>
+
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h2>📑 Quick Navigation</h2>
+            <div class="toc-grid">
+                <div class="toc-item">
+                    <a href="#fundamentals">Day 1: Fundamentals</a>
+                    <div class="toc-item-day">4 Modules • 14 Files</div>
+                </div>
+                <div class="toc-item">
+                    <a href="#advanced">Day 2: Advanced Project</a>
+                    <div class="toc-item-day">Insight Portal • Full Stack</div>
+                </div>
+                <div class="toc-item">
+                    <a href="Course%20Summary.md">📄 Course Summary</a>
+                    <div class="toc-item-day">Complete overview</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAY 1 SECTION -->
+        <div class="day-separator" id="fundamentals">📚 DAY 1: FUNDAMENTALS</div>
+
+        <div class="content">
+            <!-- Module 1 -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>1. GitHub Copilot 사용해보기</h2>
+                    <p class="section-subtitle">Introduction & Getting Started</p>
+                </div>
+                <div class="section-content">
+                    <div class="module">
+                        <div class="module-title">📖 Course Introduction</div>
+                        <div class="module-description">Get started with GitHub Copilot basics and fundamentals</div>
+                        <div class="module-links">
+                            <a href="Day1/1.%20GitHub%20Copilot%20사용해보기/GitHub%20Copilot%20사용해보기.md" class="link-btn">📄 Read Guide</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Module 2 -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>2. 여러 기능 알아보기</h2>
+                    <p class="section-subtitle">Banking & Invoice Calculations</p>
+                </div>
+                <div class="section-content">
+                    <div class="module">
+                        <div class="module-title">💰 Bank Account</div>
+                        <div class="module-description">Deposit, withdraw, and statement methods implementation</div>
+                        <div class="module-links">
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/bank_account.py" class="link-btn">📁 Start</a>
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Completed/bank_account.py" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">📋 Invoice System</div>
+                        <div class="module-description">Calculate subtotal and total with tax and discounts</div>
+                        <div class="module-links">
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/invoice.py" class="link-btn">📁 Start</a>
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Completed/invoice.py" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">🧪 Test Suite</div>
+                        <div class="module-description">10 comprehensive test cases</div>
+                        <div class="module-links">
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/test_invoice.py" class="link-btn">📁 Start</a>
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Completed/test_invoice.py" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">📊 Diagrams</div>
+                        <div class="module-description">Visual representations of the system</div>
+                        <div class="module-links">
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/diagrams/class_diagram.html" class="link-btn">class</a>
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/diagrams/state_diagram.html" class="link-btn">state</a>
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/diagrams/case1_type_validation.html" class="link-btn">case1</a>
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/diagrams/case2_invalid_amount.html" class="link-btn">case2</a>
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/diagrams/case3_insufficient_funds.html" class="link-btn">case3</a>
+                            <a href="Day1/2-1,2.%20GitHub%20Copilot%20여러%20기능%20알아보기/Start/diagrams/case4_successful_withdrawal.html" class="link-btn">case4</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Module 3 -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>3. Chat 핵심 기능</h2>
+                    <p class="section-subtitle">Data Handling & User Management</p>
+                </div>
+                <div class="section-content">
+                    <div class="module">
+                        <div class="module-title">📊 Data Handler</div>
+                        <div class="module-description">Enhanced with type hints and error handling</div>
+                        <div class="module-links">
+                            <a href="Day1/2-3.%20GitHub%20Copilot%20Chat%20핵심%20기능/Start/data_handler.py" class="link-btn">📁 Start</a>
+                            <a href="Day1/2-3.%20GitHub%20Copilot%20Chat%20핵심%20기능/Completed/data_handler.py" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">👤 User Manager</div>
+                        <div class="module-description">User management with validation and sorting</div>
+                        <div class="module-links">
+                            <a href="Day1/2-3.%20GitHub%20Copilot%20Chat%20핵심%20기능/Start/user_manager.py" class="link-btn">📁 Start</a>
+                            <a href="Day1/2-3.%20GitHub%20Copilot%20Chat%20핵심%20기능/Completed/user_manager.py" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">📋 Requirements</div>
+                        <div class="module-description">Project specifications</div>
+                        <div class="module-links">
+                            <a href="Day1/2-3.%20GitHub%20Copilot%20Chat%20핵심%20기능/Start/REQUIREMENTS.md" class="link-btn">📄 View</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Module 4 -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>4. Prompt Engineering</h2>
+                    <p class="section-subtitle">FastAPI Authentication</p>
+                </div>
+                <div class="section-content">
+                    <div class="module">
+                        <div class="module-title">🔐 Security & Auth</div>
+                        <div class="module-description">Password hashing and validation</div>
+                        <div class="module-links">
+                            <a href="Day1/3-1.%20GitHub%20Copilot%20Prompt%20Engineering/Start/app/security.py" class="link-btn">📁 Start</a>
+                            <a href="Day1/3-1.%20GitHub%20Copilot%20Prompt%20Engineering/Completed/app/security.py" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">💾 Storage</div>
+                        <div class="module-description">User storage with duplicate email handling</div>
+                        <div class="module-links">
+                            <a href="Day1/3-1.%20GitHub%20Copilot%20Prompt%20Engineering/Start/app/storage.py" class="link-btn">📁 Start</a>
+                            <a href="Day1/3-1.%20GitHub%20Copilot%20Prompt%20Engineering/Completed/app/storage.py" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">🛣️ Auth Routes</div>
+                        <div class="module-description">REST API endpoints</div>
+                        <div class="module-links">
+                            <a href="Day1/3-1.%20GitHub%20Copilot%20Prompt%20Engineering/Start/app/routes/auth.py" class="link-btn">📁 Start</a>
+                            <a href="Day1/3-1.%20GitHub%20Copilot%20Prompt%20Engineering/Completed/app/routes/auth.py" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">📄 README</div>
+                        <div class="module-description">Project guide</div>
+                        <div class="module-links">
+                            <a href="Day1/3-1.%20GitHub%20Copilot%20Prompt%20Engineering/Start/README.md" class="link-btn">📄 Start</a>
+                            <a href="Day1/3-1.%20GitHub%20Copilot%20Prompt%20Engineering/Completed/README.md" class="link-btn">✅ Solution</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Module 5 -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>5. Advanced Prompt Engineering</h2>
+                    <p class="section-subtitle">Product Review API</p>
+                </div>
+                <div class="section-content">
+                    <div class="module">
+                        <div class="module-title">📚 Reviews API</div>
+                        <div class="module-description">Full CRUD operations for product reviews</div>
+                        <div class="module-links">
+                            <a href="Day1/3-2.%20GitHub%20Copilot%20Prompt%20Engineering%20Advanced/Start/reviews.py" class="link-btn">📁 Files</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">⚙️ Main App</div>
+                        <div class="module-description">FastAPI setup with router</div>
+                        <div class="module-links">
+                            <a href="Day1/3-2.%20GitHub%20Copilot%20Prompt%20Engineering%20Advanced/Start/main.py" class="link-btn">📁 Start</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Module 6 -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>6. Create Todolist</h2>
+                    <p class="section-subtitle">Full Stack Todo Application</p>
+                </div>
+                <div class="section-content">
+                    <div class="module">
+                        <div class="module-title">⚙️ Service Layer</div>
+                        <div class="module-description">Core TodoService with CRUD functionality</div>
+                        <div class="module-links">
+                            <a href="Day1/4)%20Create%20Todolist/Start/todo_service.py" class="link-btn">📁 Start</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">🌐 Main API</div>
+                        <div class="module-description">FastAPI REST endpoints</div>
+                        <div class="module-links">
+                            <a href="Day1/4)%20Create%20Todolist/Start/main.py" class="link-btn">📁 Start</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">🎨 User Interface</div>
+                        <div class="module-description">Streamlit UI for todo management</div>
+                        <div class="module-links">
+                            <a href="Day1/4)%20Create%20Todolist/Start/ui.py" class="link-btn">📁 Start</a>
+                        </div>
+                    </div>
+                    <div class="module">
+                        <div class="module-title">🧪 Tests</div>
+                        <div class="module-description">15 comprehensive unit tests</div>
+                        <div class="module-links">
+                            <a href="Day1/4)%20Create%20Todolist/Start/tests/test_todo_service.py" class="link-btn">🧪 Start</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAY 2 SECTION -->
+        <div class="day-separator" id="advanced">🏆 DAY 2: ADVANCED PROJECT</div>
+
+        <div class="content">
+            <!-- Insight Portal -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>Insight Portal</h2>
+                    <p class="section-subtitle">데이터 분석 → API 서비스화</p>
+                </div>
+                <div class="section-content">
+                    <div class="module">
+                        <div class="module-title">📚 Setup & Documentation</div>
+                        <div class="module-description">Getting started with the project</div>
+                        <div class="module-links">
+                            <a href="Day2/insight-portal/README.md" class="link-btn">📄 README</a>
+                            <a href="Day2/insight-portal/QUICKSTART.md" class="link-btn">🚀 Quickstart</a>
+                        </div>
+                    </div>
+
+                    <div class="module">
+                        <div class="module-title">📊 Analysis Module</div>
+                        <div class="module-description">KPI calculations and visualizations</div>
+                        <div class="module-links">
+                            <a href="Day2/insight-portal/analysis/kpi.py" class="link-btn">📈 KPI</a>
+                            <a href="Day2/insight-portal/analysis/viz.py" class="link-btn">📉 Visualization</a>
+                        </div>
+                    </div>
+
+                    <div class="module">
+                        <div class="module-title">🌐 FastAPI Application</div>
+                        <div class="module-description">REST API with security and database</div>
+                        <div class="module-links">
+                            <a href="Day2/insight-portal/app/main.py" class="link-btn">⚙️ Main</a>
+                            <a href="Day2/insight-portal/app/security.py" class="link-btn">🔐 Security</a>
+                            <a href="Day2/insight-portal/app/storage.py" class="link-btn">💾 Storage</a>
+                        </div>
+                    </div>
+
+                    <div class="module">
+                        <div class="module-title">🛣️ API Routes</div>
+                        <div class="module-description">Authentication and metrics endpoints</div>
+                        <div class="module-links">
+                            <a href="Day2/insight-portal/app/routes/auth.py" class="link-btn">🔐 Auth</a>
+                            <a href="Day2/insight-portal/app/routes/metrics.py" class="link-btn">📊 Metrics</a>
+                        </div>
+                    </div>
+
+                    <div class="module">
+                        <div class="module-title">📦 Data & Tools</div>
+                        <div class="module-description">Sample data and utilities</div>
+                        <div class="module-links">
+                            <a href="Day2/insight-portal/data/orders.csv" class="link-btn">📊 Orders</a>
+                            <a href="Day2/insight-portal/tools/generate_data.py" class="link-btn">🔧 Generator</a>
+                        </div>
+                    </div>
+
+                    <div class="module">
+                        <div class="module-title">🧪 Testing & Reports</div>
+                        <div class="module-description">Unit tests and analysis reports</div>
+                        <div class="module-links">
+                            <a href="Day2/insight-portal/tests/test_api.py" class="link-btn">🧪 API Tests</a>
+                            <a href="Day2/insight-portal/tests/test_kpi.py" class="link-btn">🧪 KPI Tests</a>
+                            <a href="Day2/insight-portal/reports/report.md" class="link-btn">📄 Report</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats">
+            <h2>📈 Course Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <h3>6</h3>
+                    <p>Modules</p>
+                </div>
+                <div class="stat-item">
+                    <h3>30+</h3>
+                    <p>Code Files</p>
+                </div>
+                <div class="stat-item">
+                    <h3>50+</h3>
+                    <p>Test Cases</p>
+                </div>
+                <div class="stat-item">
+                    <h3>2</h3>
+                    <p>Days</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Technologies -->
+        <div class="section" style="margin-top: 40px;">
+            <div class="section-header">
+                <h2>🛠️ Technologies & Tools</h2>
+                <p class="section-subtitle">Technologies used throughout the course</p>
+            </div>
+            <div class="section-content">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div>
+                        <strong>Languages & Frameworks</strong>
+                        <ul style="list-style: none; margin-top: 10px; font-size: 0.9em; line-height: 2;">
+                            <li>✓ Python 3.11+</li>
+                            <li>✓ FastAPI</li>
+                            <li>✓ Streamlit</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong>Data & Testing</strong>
+                        <ul style="list-style: none; margin-top: 10px; font-size: 0.9em; line-height: 2;">
+                            <li>✓ Pandas</li>
+                            <li>✓ Matplotlib</li>
+                            <li>✓ Pytest</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong>Security & Storage</strong>
+                        <ul style="list-style: none; margin-top: 10px; font-size: 0.9em; line-height: 2;">
+                            <li>✓ Password Hashing (bcrypt)</li>
+                            <li>✓ Pydantic Validation</li>
+                            <li>✓ Type Hints</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>✨ GitHub Copilot Practice Course - Complete Learning Journey</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Last Updated: February 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
