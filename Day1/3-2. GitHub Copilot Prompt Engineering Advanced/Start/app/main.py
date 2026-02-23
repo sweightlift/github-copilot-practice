@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from app import reviews
 
 app = FastAPI(title="Review API")
 
@@ -10,6 +11,4 @@ async def health():
     return {"ok": True, "status": "healthy"}
 
 
-# TODO: reviews 라우터를 포함해야 함
-# from app.routes import reviews
-# app.include_router(reviews.router, prefix="/api")
+app.include_router(reviews.router, prefix="/api")

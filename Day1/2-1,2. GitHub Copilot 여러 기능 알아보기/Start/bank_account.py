@@ -23,10 +23,21 @@ class BankAccount:
         return self._balance
 
     def deposit(self, amount: int) -> None:
-        raise NotImplementedError
+        # TODO: amount가 0 이하이면 ValueError      
+        if amount <= 0:
+            raise ValueError("amount must be > 0")
+        # TODO: balance 증가
+        self._balance += amount
+        # TODO: ledger에 Transaction(kind="deposit") 기록
+        self.ledger.append(Transaction(kind="deposit", amount=amount, balance_after=self._balance))
 
     def withdraw(self, amount: int) -> None:
-        raise NotImplementedError
+        if amount <= 0:
+            raise ValueError("amount must be > 0")
+        if amount > self._balance:
+            raise InsufficientFunds("Insufficient funds")
+        self._balance -= amount
+        self.ledger.append(Transaction(kind="withdraw", amount=amount, balance_after=self._balance))
 
     def statement(self) -> str:
         """
@@ -35,4 +46,8 @@ class BankAccount:
         deposit  +1000  balance=1000
         withdraw  -250  balance=750
         """
-        raise NotImplementedError
+        lines = []
+        for transaction in self.ledger:
+            sign = "+" if transaction.kind == "deposit" else "-"
+            lines.append(f"{transaction.kind:8} {sign}{transaction.amount:5}  balance={transaction.balance_after}")
+        return "\n".join(lines)
