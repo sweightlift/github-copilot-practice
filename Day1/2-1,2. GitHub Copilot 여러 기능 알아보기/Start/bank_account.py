@@ -32,10 +32,16 @@ class BankAccount:
         self.ledger.append(Transaction(kind="deposit", amount=amount, balance_after=self._balance))
 
     def withdraw(self, amount: int) -> None:
+        # Validate type
+        if not isinstance(amount, int):
+            raise TypeError(f"amount must be an integer, not {type(amount).__name__}")
+        # Validate amount is positive
         if amount <= 0:
-            raise ValueError("amount must be > 0")
+            raise ValueError(f"amount must be > 0, got {amount}")
+        # Check sufficient funds
         if amount > self._balance:
-            raise InsufficientFunds("Insufficient funds")
+            raise InsufficientFunds(f"Insufficient funds: need {amount}, have {self._balance}")
+        # Perform withdrawal
         self._balance -= amount
         self.ledger.append(Transaction(kind="withdraw", amount=amount, balance_after=self._balance))
 
