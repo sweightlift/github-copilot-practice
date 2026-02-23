@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insight Portal - Class Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            width: 90%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Insight Portal - Class Diagram</h1>
+        <div class="mermaid">
+classDiagram
+class KPIModule {
++load_orders()
++compute_kpis()
+}
+class VizModule {
++generate_charts()
+}
+class Security {
++hash_password()
++verify_password()
+}
+class Storage {
+-users_db
++get_user_by_email()
++create_user()
+}
+class AuthRouter {
++register()
+}
+class MetricsRouter {
++get_kpis()
++get_charts()
+}
+class FastAPIApp {
++dashboard()
++health()
+}
+FastAPIApp --> AuthRouter : includes
+FastAPIApp --> MetricsRouter : includes
+AuthRouter --> Security : uses
+AuthRouter --> Storage : uses
+MetricsRouter --> KPIModule : uses
+MetricsRouter --> VizModule : uses
+        </div>
+    </div>
+</body>
+</html>

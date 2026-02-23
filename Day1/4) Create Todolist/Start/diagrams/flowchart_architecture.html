@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo App - Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            width: 90%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Flowchart - Todo App Architecture</h1>
+        <div class="mermaid">
+flowchart TD
+    subgraph Frontend["Streamlit UI (ui.py)"]
+        INPUT[Text Input Form]
+        LIST[Todo List Display]
+        STATS[Statistics Panel]
+        HEALTH[API Health Check]
+    end
+    subgraph API["FastAPI (main.py)"]
+        E1["GET /health"]
+        E2["POST /todos"]
+        E3["GET /todos"]
+        E4["GET /todos/:id"]
+        E5["PUT /todos/:id/toggle"]
+        E6["DELETE /todos/:id"]
+    end
+    subgraph Service["TodoService (todo_service.py)"]
+        S1[add_todo]
+        S2[get_todos]
+        S3[get_todo]
+        S4[toggle_done]
+        S5[delete_todo]
+    end
+    subgraph Data["In-Memory Store"]
+        DB[("_todos dict")]
+    end
+    HEALTH -->|HTTP| E1
+    INPUT -->|HTTP| E2
+    LIST -->|HTTP| E3
+    LIST -->|HTTP| E5
+    LIST -->|HTTP| E6
+    E2 --> S1
+    E3 --> S2
+    E4 --> S3
+    E5 --> S4
+    E6 --> S5
+    S1 --> DB
+    S2 --> DB
+    S3 --> DB
+    S4 --> DB
+    S5 --> DB
+        </div>
+    </div>
+</body>
+</html>

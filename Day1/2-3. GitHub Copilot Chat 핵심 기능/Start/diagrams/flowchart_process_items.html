@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Diagram - Process Items</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            width: 90%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Flowchart - Data Processing Pipeline</h1>
+        <div class="mermaid">
+flowchart TD
+    A[Input: List of Items] --> B{For each item}
+    B --> C{Has required fields?}
+    C -->|No| D[DataProcessingError]
+    C -->|Yes| E{Valid types?}
+    E -->|No| F[DataProcessingError]
+    E -->|Yes| G{status == active?}
+    G -->|No| B
+    G -->|Yes| H[Uppercase name]
+    H --> I[Multiply value x 1.1]
+    I --> J[Keep timestamp]
+    J --> K[Append to results]
+    K --> B
+    B -->|Done| L[Return processed items]
+        </div>
+    </div>
+</body>
+</html>

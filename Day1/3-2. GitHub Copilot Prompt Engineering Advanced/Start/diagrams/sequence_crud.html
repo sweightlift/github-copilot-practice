@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review API - CRUD Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            width: 90%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sequence Diagram - Review CRUD Operations</h1>
+        <div class="mermaid">
+sequenceDiagram
+    actor Client
+    participant R as ReviewRouter
+    participant S as Storage
+
+    Note over Client,S: CREATE
+    Client->>R: POST /reviews
+    R->>S: save_review(data)
+    S-->>R: review with ID
+    R-->>Client: 201 SuccessResponse
+
+    Note over Client,S: READ
+    Client->>R: GET /reviews/1
+    R->>S: get_review(1)
+    alt Not found
+        S-->>R: None
+        R-->>Client: 404 ErrorResponse
+    else Found
+        S-->>R: review dict
+        R-->>Client: 200 ReviewResponse
+    end
+
+    Note over Client,S: UPDATE
+    Client->>R: PUT /reviews/1
+    R->>S: update_review(1, data)
+    alt Not found
+        S-->>R: None
+        R-->>Client: 404 ErrorResponse
+    else Updated
+        S-->>R: updated review
+        R-->>Client: 200 SuccessResponse
+    end
+
+    Note over Client,S: DELETE
+    Client->>R: DELETE /reviews/1
+    R->>S: delete_review(1)
+    alt Not found
+        S-->>R: False
+        R-->>Client: 404 ErrorResponse
+    else Deleted
+        S-->>R: True
+        R-->>Client: 204 No Content
+    end
+        </div>
+    </div>
+</body>
+</html>

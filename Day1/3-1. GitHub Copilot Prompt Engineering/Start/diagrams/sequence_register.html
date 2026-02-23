@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth API - Registration Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            width: 90%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sequence Diagram - User Registration Flow</h1>
+        <div class="mermaid">
+sequenceDiagram
+    actor Client
+    participant R as AuthRouter
+    participant S as Security
+    participant DB as Storage
+    
+    Client->>R: POST /auth/register
+    R->>R: Validate email format
+    alt Invalid email
+        R-->>Client: 400 INVALID_EMAIL
+    else Valid email
+        R->>S: validate_password(password)
+        alt Weak password
+            S-->>R: (false, reason)
+            R-->>Client: 400 WEAK_PASSWORD
+        else Strong password
+            S-->>R: (true, null)
+            R->>S: hash_password(password)
+            S-->>R: hashed_password
+            R->>DB: create_user(email, hash)
+            alt Duplicate email
+                DB-->>R: DuplicateEmailError
+                R-->>Client: 409 DUPLICATE_EMAIL
+            else Success
+                DB-->>R: user dict
+                R-->>Client: 201 RegisterResponse
+            end
+        end
+    end
+        </div>
+    </div>
+</body>
+</html>
