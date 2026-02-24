@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CustomerManager — Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            padding: 2rem 2rem 1.5rem;
+            border-bottom: 2px solid #3b82f6;
+        }
+        header h1 { font-size: 1.8rem; color: #f8fafc; }
+        header p { color: #94a3b8; margin-top: 0.3rem; font-size: 0.95rem; }
+
+        /* Status bar */
+        .status-bar {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            padding: 1rem 2rem;
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+        }
+        .status-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .status-chip.green  { background: #064e3b; color: #6ee7b7; }
+        .status-chip.blue   { background: #1e3a5f; color: #93c5fd; }
+        .status-chip.yellow { background: #422006; color: #fcd34d; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .dot.green  { background: #10b981; }
+        .dot.blue   { background: #3b82f6; }
+        .dot.yellow { background: #f59e0b; }
+
+        /* Main grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Cards */
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .card-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .card-header .icon { font-size: 1.3rem; }
+        .card-header h2 { font-size: 1rem; color: #f1f5f9; }
+        .card-body { padding: 1.25rem; }
+        .card-body p { color: #94a3b8; font-size: 0.88rem; line-height: 1.6; }
+
+        /* Links */
+        a.card-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            margin-top: 0.8rem;
+            padding: 0.5rem 1rem;
+            background: #3b82f6;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.15s;
+        }
+        a.card-link:hover { background: #2563eb; }
+        a.card-link.secondary { background: #475569; }
+        a.card-link.secondary:hover { background: #64748b; }
+
+        /* API table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.8rem;
+            font-size: 0.85rem;
+        }
+        th {
+            text-align: left;
+            padding: 0.5rem 0.6rem;
+            color: #94a3b8;
+            font-weight: 600;
+            border-bottom: 1px solid #334155;
+        }
+        td {
+            padding: 0.5rem 0.6rem;
+            border-bottom: 1px solid #1e293b;
+        }
+        td a {
+            color: #60a5fa;
+            text-decoration: none;
+        }
+        td a:hover { text-decoration: underline; }
+        .method {
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .method.get { background: #16a34a; }
+        .method.post { background: #2563eb; }
+        .method.put { background: #d97706; }
+        .method.delete { background: #dc2626; }
+
+        /* Live check */
+        #health-status { font-weight: 600; }
+        #health-status.ok { color: #6ee7b7; }
+        #health-status.fail { color: #fca5a5; }
+        #health-status.checking { color: #fcd34d; }
+
+        /* Full-width card */
+        .full-width { grid-column: 1 / -1; }
+
+        /* Markdown render area */
+        .md-frame {
+            width: 100%;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            background: #fff;
+            margin-top: 0.8rem;
+        }
+        iframe {
+            width: 100%;
+            border: none;
+            border-radius: 8px;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: #475569;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>&#128736; CustomerManager — Project Dashboard</h1>
+    <p>.NET 8 Legacy API &bull; Analysis &amp; Exploration Hub</p>
+</header>
+
+<div class="status-bar">
+    <span class="status-chip green"><span class="dot green"></span> .NET SDK 8.0 Installed</span>
+    <span class="status-chip green"><span class="dot green"></span> Build Succeeded</span>
+    <span class="status-chip blue"><span class="dot blue"></span> Server: http://localhost:5000</span>
+    <span class="status-chip yellow"><span class="dot yellow"></span> API Health: <span id="health-status" class="checking">checking...</span></span>
+</div>
+
+<div class="dashboard">
+
+    <!-- ============ Documents ============ -->
+    <div class="card">
+        <div class="card-header">
+            <span class="icon">&#128196;</span>
+            <h2>Project Analysis</h2>
+        </div>
+        <div class="card-body">
+            <p>Full breakdown of architecture, models, services, controllers, configuration, 10 identified issues, and a modernization roadmap.</p>
+            <a class="card-link" href="PROJECT_ANALYSIS.md" target="_blank">&#128269; Open PROJECT_ANALYSIS.md</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="icon">&#9745;</span>
+            <h2>Progress Tracker</h2>
+        </div>
+        <div class="card-body">
+            <p>Step-by-step progress log — SDK install, build, run, endpoint testing, issues encountered, and next steps.</p>
+            <a class="card-link" href="PROGRESS.md" target="_blank">&#128203; Open PROGRESS.md</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="icon">&#128208;</span>
+            <h2>Architecture Diagrams</h2>
+        </div>
+        <div class="card-body">
+            <p>Mermaid-powered diagrams: class diagram, 3 sequence diagrams, and a DI/pipeline flowchart.</p>
+            <a class="card-link" href="DIAGRAMS.html" target="_blank">&#128200; Open Diagrams</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="icon">&#128421;</span>
+            <h2>Swagger UI</h2>
+        </div>
+        <div class="card-body">
+            <p>Interactive API documentation. Requires the server to be running in Development mode on port 5000.</p>
+            <a class="card-link" href="http://localhost:5000/swagger/index.html" target="_blank">&#9889; Open Swagger UI</a>
+        </div>
+    </div>
+
+    <!-- ============ Live API Endpoints ============ -->
+    <div class="card full-width">
+        <div class="card-header">
+            <span class="icon">&#127760;</span>
+            <h2>Live API Endpoints</h2>
+        </div>
+        <div class="card-body">
+            <p>Click any endpoint to test it directly (server must be running on localhost:5000).</p>
+            <table>
+                <thead>
+                    <tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Try It</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="method get">GET</span></td>
+                        <td>/health</td>
+                        <td>Health check — returns status, message, timestamp</td>
+                        <td><a href="http://localhost:5000/health" target="_blank">&#8599; Open</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method get">GET</span></td>
+                        <td>/api/customers</td>
+                        <td>Get all customers</td>
+                        <td><a href="http://localhost:5000/api/customers" target="_blank">&#8599; Open</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method get">GET</span></td>
+                        <td>/api/customers/search?name=John</td>
+                        <td>Search customer by name (partial, case-insensitive)</td>
+                        <td><a href="http://localhost:5000/api/customers/search?name=John" target="_blank">&#8599; Open</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method get">GET</span></td>
+                        <td>/api/customers/1</td>
+                        <td>Get customer by ID — John Doe</td>
+                        <td><a href="http://localhost:5000/api/customers/1" target="_blank">&#8599; Open</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method get">GET</span></td>
+                        <td>/api/customers/2</td>
+                        <td>Get customer by ID — Jane Smith</td>
+                        <td><a href="http://localhost:5000/api/customers/2" target="_blank">&#8599; Open</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method get">GET</span></td>
+                        <td>/api/customers/3</td>
+                        <td>Get customer by ID — Bob Wilson</td>
+                        <td><a href="http://localhost:5000/api/customers/3" target="_blank">&#8599; Open</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method get">GET</span></td>
+                        <td>/api/customers/999</td>
+                        <td>Get customer by ID — 404 example</td>
+                        <td><a href="http://localhost:5000/api/customers/999" target="_blank">&#8599; Open</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method post">POST</span></td>
+                        <td>/api/customers</td>
+                        <td>Add new customer — use Swagger or curl</td>
+                        <td><a href="http://localhost:5000/swagger/index.html" target="_blank">&#8599; Swagger</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method put">PUT</span></td>
+                        <td>/api/customers/{id}</td>
+                        <td>Update customer by ID — use Swagger or curl</td>
+                        <td><a href="http://localhost:5000/swagger/index.html" target="_blank">&#8599; Swagger</a></td>
+                    </tr>
+                    <tr>
+                        <td><span class="method delete">DELETE</span></td>
+                        <td>/api/customers/{id}</td>
+                        <td>Delete customer by ID — use Swagger or curl</td>
+                        <td><a href="http://localhost:5000/swagger/index.html" target="_blank">&#8599; Swagger</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ============ Source Files ============ -->
+    <div class="card full-width">
+        <div class="card-header">
+            <span class="icon">&#128193;</span>
+            <h2>Source Files Overview</h2>
+        </div>
+        <div class="card-body">
+            <table>
+                <thead>
+                    <tr><th>File</th><th>Role</th><th>Key Contents</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Program.cs</td>
+                        <td>Entry Point</td>
+                        <td>DI registration, Swagger, middleware pipeline</td>
+                    </tr>
+                    <tr>
+                        <td>Controllers/CustomersController.cs</td>
+                        <td>API Controller</td>
+                        <td>Full CRUD: GET all, GET by ID, Search, POST, PUT, DELETE</td>
+                    </tr>
+                    <tr>
+                        <td>Controllers/HealthController.cs</td>
+                        <td>API Controller</td>
+                        <td>GET /health — simple status check</td>
+                    </tr>
+                    <tr>
+                        <td>Models/DomainModels.cs</td>
+                        <td>Domain Models</td>
+                        <td>Customer, Order (unused), HealthResponse</td>
+                    </tr>
+                    <tr>
+                        <td>Services/CustomerService.cs</td>
+                        <td>Business Logic</td>
+                        <td>ICustomerService + in-memory CRUD (3 seed records)</td>
+                    </tr>
+                    <tr>
+                        <td>appsettings.json</td>
+                        <td>Configuration</td>
+                        <td>Connection string (unused), API version, GitHub Models key (empty)</td>
+                    </tr>
+                    <tr>
+                        <td>CustomerManager.csproj</td>
+                        <td>Project File</td>
+                        <td>.NET 8.0, Swashbuckle 6.4.0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    CustomerManager Dashboard &bull; Generated 2026-02-24
+</footer>
+
+<script>
+    // Live health check
+    async function checkHealth() {
+        const el = document.getElementById('health-status');
+        try {
+            const res = await fetch('http://localhost:5000/health', { signal: AbortSignal.timeout(3000) });
+            if (res.ok) {
+                const data = await res.json();
+                el.textContent = data.status || 'OK';
+                el.className = 'ok';
+            } else {
+                el.textContent = `HTTP ${res.status}`;
+                el.className = 'fail';
+            }
+        } catch (e) {
+            el.textContent = 'Offline';
+            el.className = 'fail';
+        }
+    }
+    checkHealth();
+    setInterval(checkHealth, 10000);
+</script>
+
+</body>
+</html>

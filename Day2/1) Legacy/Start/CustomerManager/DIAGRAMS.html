@@ -103,6 +103,9 @@ classDiagram
         +GetCustomer(int id) Customer?
         +SearchCustomer(string name) Customer?
         +GetAllCustomers() List~Customer~
+        +AddCustomer(Customer) Customer
+        +UpdateCustomer(int id, Customer) Customer?
+        +DeleteCustomer(int id) bool
     }
 
     class CustomerService {
@@ -110,12 +113,19 @@ classDiagram
         +GetCustomer(int id) Customer?
         +SearchCustomer(string name) Customer?
         +GetAllCustomers() List~Customer~
+        +AddCustomer(Customer) Customer
+        +UpdateCustomer(int id, Customer) Customer?
+        +DeleteCustomer(int id) bool
     }
 
     class CustomersController {
         -ICustomerService _customerService
+        +GetAllCustomers() ActionResult~List~Customer~~
         +SearchCustomer(string name) ActionResult~Customer~
         +GetCustomer(int id) ActionResult~Customer~
+        +AddCustomer(Customer) ActionResult~Customer~
+        +UpdateCustomer(int id, Customer) ActionResult~Customer~
+        +DeleteCustomer(int id) ActionResult
     }
 
     class HealthController {
@@ -130,7 +140,7 @@ classDiagram
     Order --> Customer : CustomerId references
 
     note for Order "Defined but unused —\nno service or controller"
-    note for CustomerService "Static in-memory data\n(3 seed customers)"
+    note for CustomerService "Static in-memory data\n(3 seed customers)\nFull CRUD supported"
     </div>
 
     <div class="legend">
@@ -242,10 +252,121 @@ sequenceDiagram
 </div>
 
 <!-- ============================================================ -->
+<!-- SEQUENCE DIAGRAM — Add Customer (POST)                         -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>5. Sequence Diagram — POST /api/customers</h2>
+    <p>Create a new customer with auto-assigned ID.</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Kestrel as Kestrel Server
+    participant CC as CustomersController
+    participant CS as CustomerService
+    participant Data as Static List&lt;Customer&gt;
+
+    Client->>Kestrel: POST /api/customers {name, email}
+    Kestrel->>CC: AddCustomer(customer)
+
+    alt name is empty
+        CC-->>Kestrel: 400 Bad Request
+        Kestrel-->>Client: HTTP 400 "Customer name is required"
+    else name is valid
+        CC->>CS: AddCustomer(customer)
+        CS->>Data: Max(Id) + 1, set CreatedAt
+        CS->>Data: Add(customer)
+        Data-->>CS: done
+        CS-->>CC: Customer (with new Id)
+        CC-->>Kestrel: 201 Created + Location header
+        Kestrel-->>Client: HTTP 201 Customer JSON
+    end
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SEQUENCE DIAGRAM — Update Customer (PUT)                       -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>6. Sequence Diagram — PUT /api/customers/{id}</h2>
+    <p>Update an existing customer's name and email.</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Kestrel as Kestrel Server
+    participant CC as CustomersController
+    participant CS as CustomerService
+    participant Data as Static List&lt;Customer&gt;
+
+    Client->>Kestrel: PUT /api/customers/1 {name, email}
+    Kestrel->>CC: UpdateCustomer(1, customer)
+
+    alt id &lt;= 0 or name empty
+        CC-->>Kestrel: 400 Bad Request
+        Kestrel-->>Client: HTTP 400
+    else valid input
+        CC->>CS: UpdateCustomer(1, customer)
+        CS->>Data: FirstOrDefault(c => c.Id == 1)
+
+        alt customer found
+            CS->>Data: Update Name, Email
+            CS-->>CC: Updated Customer
+            CC-->>Kestrel: 200 OK + Customer JSON
+            Kestrel-->>Client: HTTP 200 Customer
+        else not found
+            CS-->>CC: null
+            CC-->>Kestrel: 404 Not Found
+            Kestrel-->>Client: HTTP 404
+        end
+    end
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SEQUENCE DIAGRAM — Delete Customer (DELETE)                    -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>7. Sequence Diagram — DELETE /api/customers/{id}</h2>
+    <p>Remove a customer by ID.</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Kestrel as Kestrel Server
+    participant CC as CustomersController
+    participant CS as CustomerService
+    participant Data as Static List&lt;Customer&gt;
+
+    Client->>Kestrel: DELETE /api/customers/1
+    Kestrel->>CC: DeleteCustomer(1)
+
+    alt id &lt;= 0
+        CC-->>Kestrel: 400 Bad Request
+        Kestrel-->>Client: HTTP 400
+    else valid id
+        CC->>CS: DeleteCustomer(1)
+        CS->>Data: FirstOrDefault(c => c.Id == 1)
+
+        alt customer found
+            CS->>Data: Remove(customer)
+            CS-->>CC: true
+            CC-->>Kestrel: 204 No Content
+            Kestrel-->>Client: HTTP 204
+        else not found
+            CS-->>CC: false
+            CC-->>Kestrel: 404 Not Found
+            Kestrel-->>Client: HTTP 404
+        end
+    end
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- COMPONENT / DEPENDENCY FLOW                                    -->
 <!-- ============================================================ -->
 <div class="diagram-section">
-    <h2>5. Dependency Injection &amp; Request Pipeline</h2>
+    <h2>8. Dependency Injection &amp; Request Pipeline</h2>
     <p>High-level view of the middleware pipeline and DI container.</p>
 
     <div class="mermaid">

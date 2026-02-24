@@ -37,9 +37,31 @@ dotnet build
 | 3 | Get customer by ID | `http://localhost:5000/api/customers/2` | ✅ Returns Jane Smith (id: 2) |
 | 4 | Swagger UI | `http://localhost:5000/swagger/index.html` | ✅ HTTP 200 (available in Development mode) |
 
-### Step 6: Explore & Next Steps ⏳ (In Progress)
+### Step 6: Explore & Next Steps ✅
 - Swagger UI is live for interactive API testing.
-- Identify modernization tasks from the analysis (see [PROJECT_ANALYSIS.md](PROJECT_ANALYSIS.md#suggested-next-steps-modernization-path)).
+- Identified modernization tasks from the analysis.
+
+### Step 7: Implement Full CRUD ✅
+Added 4 new endpoints to `CustomersController` and corresponding service methods:
+
+| # | Feature | Method | Endpoint | Status |
+|---|---------|--------|----------|--------|
+| 1 | Get all customers | GET | `/api/customers` | ✅ Returns list of all customers |
+| 2 | Add customer | POST | `/api/customers` | ✅ Returns 201 Created + new customer with auto ID |
+| 3 | Update customer | PUT | `/api/customers/{id}` | ✅ Returns updated customer |
+| 4 | Delete customer | DELETE | `/api/customers/{id}` | ✅ Returns 204 No Content |
+
+**Test results:**
+- `GET /api/customers` → returned 3 seed customers ✅
+- `POST /api/customers` with `{"name":"Alice Park","email":"alice@example.com"}` → created id=4 ✅
+- `PUT /api/customers/4` with `{"name":"Alice Park-Kim","email":"alice.kim@example.com"}` → updated ✅
+- `DELETE /api/customers/4` → 204 No Content ✅
+- `GET /api/customers` after delete → back to 3 customers ✅
+
+### Step 8: Update Documentation & Dashboards ✅
+- Updated PROJECT_ANALYSIS.md with new endpoints, service methods, and resolved issues.
+- Updated DIAGRAMS.html — added sequence diagrams for POST, PUT, DELETE; updated class diagram with CRUD methods.
+- Updated INDEX.html — added POST/PUT/DELETE to endpoint table with color-coded method badges.
 
 ### Notes / Issues Encountered
 - `dotnet` was not on PATH initially — used full path `C:\Program Files\dotnet\dotnet.exe` to verify, then PATH resolved after terminal restart.

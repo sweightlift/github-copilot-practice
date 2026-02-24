@@ -51,12 +51,15 @@ CustomerManager/
 
 ### 3. Services (`CustomerService.cs`)
 
-- **Interface:** `ICustomerService` — `GetCustomer(int)`, `SearchCustomer(string)`, `GetAllCustomers()`
+- **Interface:** `ICustomerService` — `GetCustomer(int)`, `SearchCustomer(string)`, `GetAllCustomers()`, `AddCustomer(Customer)`, `UpdateCustomer(int, Customer)`, `DeleteCustomer(int)`
 - **Implementation:** `CustomerService`
   - Uses a **static in-memory list** with 3 seed customers (John Doe, Jane Smith, Bob Wilson).
   - `GetCustomer` — lookup by ID (`FirstOrDefault`).
   - `SearchCustomer` — case-insensitive partial name match.
   - `GetAllCustomers` — returns entire list.
+  - `AddCustomer` — auto-assigns next ID, sets `CreatedAt` to UTC now, appends to list.
+  - `UpdateCustomer` — updates Name and Email for existing customer by ID.
+  - `DeleteCustomer` — removes customer by ID, returns success/failure.
 
 ### 4. Controllers
 
@@ -64,10 +67,16 @@ CustomerManager/
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/api/customers` | GET | Get all customers |
 | `/api/customers/search?name=` | GET | Search customer by name (partial, case-insensitive) |
 | `/api/customers/{id}` | GET | Get customer by ID |
+| `/api/customers` | POST | Add a new customer (JSON body: `name`, `email`) |
+| `/api/customers/{id}` | PUT | Update customer by ID (JSON body: `name`, `email`) |
+| `/api/customers/{id}` | DELETE | Delete customer by ID |
 
-- Both endpoints include basic input validation and return `400`/`404` as appropriate.
+- All endpoints include input validation and return `400`/`404` as appropriate.
+- POST returns `201 Created` with a `Location` header.
+- DELETE returns `204 No Content` on success.
 - A `TODO` comment marks `GetCustomer` for conversion to an **Agent Tool** (Step 5).
 
 #### `HealthController` (`/`)
@@ -113,7 +122,7 @@ No other NuGet packages. No Entity Framework, no authentication, no logging fram
 | 1 | **Unused Model** | `Order` class is defined but never referenced in any service or controller. |
 | 2 | **No Persistence** | Data lives in a `static List<Customer>` — lost on restart, shared across scopes (thread-safety risk). |
 | 3 | **Connection String Unused** | `LocalDb` connection string in config is never consumed. |
-| 4 | **Missing Endpoints** | `GetAllCustomers()` exists in the service but has **no controller action** exposing it. No Create/Update/Delete endpoints. |
+| 4 | **~~Missing Endpoints~~** | ~~`GetAllCustomers()` exists in the service but has no controller action. No Create/Update/Delete.~~ **RESOLVED** — Full CRUD now implemented. |
 | 5 | **No Order Endpoints** | No service or controller for the `Order` model. |
 | 6 | **Static Data + Scoped DI** | Service is registered as `Scoped`, but the data is `static` — effectively a singleton list with no concurrency protection. |
 | 7 | **No Authentication/Authorization** | All endpoints are open. |
@@ -126,9 +135,13 @@ No other NuGet packages. No Entity Framework, no authentication, no logging fram
 ## API Quick Reference
 
 ```
-GET  /health                         → HealthResponse
-GET  /api/customers/search?name=X    → Customer | 400 | 404
-GET  /api/customers/{id}             → Customer | 400 | 404
+GET     /health                         → HealthResponse
+GET     /api/customers                  → List<Customer>
+GET     /api/customers/search?name=X    → Customer | 400 | 404
+GET     /api/customers/{id}             → Customer | 400 | 404
+POST    /api/customers                  → 201 Created + Customer | 400
+PUT     /api/customers/{id}             → Customer | 400 | 404
+DELETE  /api/customers/{id}             → 204 No Content | 400 | 404
 ```
 
 ---
@@ -136,8 +149,8 @@ GET  /api/customers/{id}             → Customer | 400 | 404
 ## Suggested Next Steps (Modernization Path)
 
 1. **Add a real data store** — Wire up Entity Framework Core with the existing `LocalDb` connection string.
-2. **Expose `GetAllCustomers`** — Add a `GET /api/customers` endpoint.
-3. **Implement CRUD** — Add Create, Update, Delete for customers.
+2. ~~**Expose `GetAllCustomers`** — Add a `GET /api/customers` endpoint.~~ ✅ Done
+3. ~~**Implement CRUD** — Add Create, Update, Delete for customers.~~ ✅ Done
 4. **Build out Orders** — Create `IOrderService` + `OrdersController` to use the `Order` model.
 5. **Add logging** — Inject `ILogger<T>` into controllers and services.
 6. **Add tests** — Create an xUnit/NUnit project with unit and integration tests.
