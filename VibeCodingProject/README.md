@@ -272,7 +272,7 @@ The **CopilotKit Sidebar** provides AI chat functionality:
 - "Search for food expenses"
 
 ### Execution Screenshots (실행 화면 캡처)
-![alt text](image.png)
+![alt text](image-1.png)
 > Screenshots should be captured by running both servers and opening http://localhost:3333
 
 **Dashboard view:**
