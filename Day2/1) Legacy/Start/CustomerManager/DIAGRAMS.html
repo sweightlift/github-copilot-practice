@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CustomerManager — Architecture Diagrams</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            padding: 2rem;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            color: #1a1a2e;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        .diagram-section {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            max-width: 1100px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .diagram-section h2 {
+            color: #16213e;
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+        }
+        .diagram-section p {
+            color: #555;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            padding: 1rem 0;
+        }
+        .legend {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: #555;
+        }
+        .legend strong { color: #333; }
+    </style>
+</head>
+<body>
+
+<h1>CustomerManager — Architecture Diagrams</h1>
+<p class="subtitle">Auto-generated from project analysis &bull; .NET 8 Web API</p>
+
+<!-- ============================================================ -->
+<!-- CLASS DIAGRAM                                                  -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>1. Class Diagram</h2>
+    <p>Shows models, service interface/implementation, and controllers with their dependencies.</p>
+
+    <div class="mermaid">
+classDiagram
+    direction LR
+
+    class Customer {
+        +int Id
+        +string? Name
+        +string? Email
+        +DateTime CreatedAt
+    }
+
+    class Order {
+        +int Id
+        +int CustomerId
+        +string? Status
+        +decimal Amount
+        +DateTime OrderDate
+    }
+
+    class HealthResponse {
+        +string? Status
+        +string? Message
+        +DateTime Timestamp
+    }
+
+    class ICustomerService {
+        &lt;&lt;interface&gt;&gt;
+        +GetCustomer(int id) Customer?
+        +SearchCustomer(string name) Customer?
+        +GetAllCustomers() List~Customer~
+    }
+
+    class CustomerService {
+        -List~Customer~ Customers$
+        +GetCustomer(int id) Customer?
+        +SearchCustomer(string name) Customer?
+        +GetAllCustomers() List~Customer~
+    }
+
+    class CustomersController {
+        -ICustomerService _customerService
+        +SearchCustomer(string name) ActionResult~Customer~
+        +GetCustomer(int id) ActionResult~Customer~
+    }
+
+    class HealthController {
+        +Health() ActionResult~HealthResponse~
+    }
+
+    ICustomerService <|.. CustomerService : implements
+    CustomerService --> Customer : manages
+    CustomersController --> ICustomerService : depends on
+    CustomersController --> Customer : returns
+    HealthController --> HealthResponse : returns
+    Order --> Customer : CustomerId references
+
+    note for Order "Defined but unused —\nno service or controller"
+    note for CustomerService "Static in-memory data\n(3 seed customers)"
+    </div>
+
+    <div class="legend">
+        <strong>Legend:</strong>
+        Solid arrow = dependency / usage &bull;
+        Dashed arrow with triangle = implements interface &bull;
+        <code>$</code> = static member &bull;
+        <span style="color:#e74c3c;">Order</span> model exists but is not wired to any service or controller.
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SEQUENCE DIAGRAM — Health Check                                -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>2. Sequence Diagram — GET /health</h2>
+    <p>Simplest endpoint: no service layer involved.</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    participant Browser
+    participant Kestrel as Kestrel Server
+    participant HC as HealthController
+
+    Browser->>Kestrel: GET /health
+    Kestrel->>HC: Health()
+    HC->>HC: Create HealthResponse (status, message, UTC timestamp)
+    HC-->>Kestrel: 200 OK + JSON
+    Kestrel-->>Browser: HTTP 200 HealthResponse
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SEQUENCE DIAGRAM — Search Customer                             -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>3. Sequence Diagram — GET /api/customers/search?name=John</h2>
+    <p>Shows input validation, service call, and the two possible outcomes (found / not found).</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    participant Browser
+    participant Kestrel as Kestrel Server
+    participant CC as CustomersController
+    participant CS as CustomerService
+    participant Data as Static List&lt;Customer&gt;
+
+    Browser->>Kestrel: GET /api/customers/search?name=John
+    Kestrel->>CC: SearchCustomer("John")
+
+    alt name is empty or whitespace
+        CC-->>Kestrel: 400 Bad Request
+        Kestrel-->>Browser: HTTP 400 "Customer name is required"
+    else name is valid
+        CC->>CS: SearchCustomer("John")
+        CS->>Data: FirstOrDefault (case-insensitive Contains)
+        Data-->>CS: Customer or null
+
+        alt customer found
+            CS-->>CC: Customer object
+            CC-->>Kestrel: 200 OK + Customer JSON
+            Kestrel-->>Browser: HTTP 200 Customer
+        else customer not found
+            CS-->>CC: null
+            CC-->>Kestrel: 404 Not Found
+            Kestrel-->>Browser: HTTP 404 "Customer 'John' not found"
+        end
+    end
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SEQUENCE DIAGRAM — Get Customer by ID                          -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>4. Sequence Diagram — GET /api/customers/{id}</h2>
+    <p>Similar flow with integer ID validation.</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    participant Browser
+    participant Kestrel as Kestrel Server
+    participant CC as CustomersController
+    participant CS as CustomerService
+    participant Data as Static List&lt;Customer&gt;
+
+    Browser->>Kestrel: GET /api/customers/1
+    Kestrel->>CC: GetCustomer(1)
+
+    alt id &lt;= 0
+        CC-->>Kestrel: 400 Bad Request
+        Kestrel-->>Browser: HTTP 400 "Invalid customer ID"
+    else id is valid
+        CC->>CS: GetCustomer(1)
+        CS->>Data: FirstOrDefault(c => c.Id == 1)
+        Data-->>CS: Customer or null
+
+        alt customer found
+            CS-->>CC: Customer object
+            CC-->>Kestrel: 200 OK + Customer JSON
+            Kestrel-->>Browser: HTTP 200 Customer
+        else customer not found
+            CS-->>CC: null
+            CC-->>Kestrel: 404 Not Found
+            Kestrel-->>Browser: HTTP 404
+        end
+    end
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMPONENT / DEPENDENCY FLOW                                    -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>5. Dependency Injection &amp; Request Pipeline</h2>
+    <p>High-level view of the middleware pipeline and DI container.</p>
+
+    <div class="mermaid">
+flowchart LR
+    subgraph Pipeline["ASP.NET Core Middleware Pipeline"]
+        direction LR
+        A["HTTP Request"] --> B["HTTPS Redirection"]
+        B --> C["Routing"]
+        C --> D{"Route Match?"}
+        D -- /health --> E["HealthController"]
+        D -- /api/customers/* --> F["CustomersController"]
+    end
+
+    subgraph DI["DI Container (Scoped)"]
+        G["ICustomerService"]
+        H["CustomerService"]
+        G -. resolves to .-> H
+    end
+
+    F -- injects --> G
+    H -- reads --> I[("Static List&lt;Customer&gt;\n(In-Memory)")]
+
+    subgraph Swagger["Swagger (Dev Only)"]
+        J["SwaggerGen"] --> K["SwaggerUI"]
+    end
+
+    style Pipeline fill:#eef2ff,stroke:#6366f1
+    style DI fill:#f0fdf4,stroke:#22c55e
+    style Swagger fill:#fefce8,stroke:#eab308
+    style I fill:#fee2e2,stroke:#ef4444
+    </div>
+</div>
+
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'default',
+        securityLevel: 'loose',
+        flowchart: { useMaxWidth: true, htmlLabels: true },
+        sequence: { useMaxWidth: true, mirrorActors: false }
+    });
+</script>
+
+</body>
+</html>
