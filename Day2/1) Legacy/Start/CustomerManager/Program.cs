@@ -102,11 +102,18 @@ app.MapPost("/api/chat", async (ChatRequest request, ICustomerService svc, IConf
         return Results.BadRequest("Message is required");
 
     // Build Semantic Kernel with GitHub Models (OpenAI-compatible endpoint)
-    // Use a custom HttpClient to handle SSL certificate issues in corporate environments
-    var handler = new HttpClientHandler();
-    handler.ServerCertificateCustomValidationCallback =
-        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-    var httpClient = new HttpClient(handler);
+    // Use SocketsHttpHandler to handle SSL issues while keeping HTTP/2 compatible
+    var handler = new SocketsHttpHandler
+    {
+        SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+        {
+            RemoteCertificateValidationCallback = (_, _, _, _) => true
+        }
+    };
+    var httpClient = new HttpClient(handler)
+    {
+        Timeout = TimeSpan.FromSeconds(60)
+    };
 
     var kernelBuilder = Kernel.CreateBuilder();
     kernelBuilder.AddOpenAIChatCompletion(
@@ -154,21 +161,52 @@ app.MapPost("/api/chat", async (ChatRequest request, ICustomerService svc, IConf
     }
     chatHistory.AddUserMessage(request.Message);
 
-    // Invoke the agent
-    var responses = new List<string>();
-    await foreach (ChatMessageContent response in agent.InvokeAsync(chatHistory))
+    // Invoke the agent with retry logic for transient network failures
+    const int maxRetries = 3;
+    for (int attempt = 1; attempt <= maxRetries; attempt++)
     {
-        if (!string.IsNullOrWhiteSpace(response.Content))
-            responses.Add(response.Content);
+        try
+        {
+            var responses = new List<string>();
+            await foreach (ChatMessageContent response in agent.InvokeAsync(chatHistory))
+            {
+                if (!string.IsNullOrWhiteSpace(response.Content))
+                    responses.Add(response.Content);
+            }
+
+            return Results.Ok(new ChatResponse
+            {
+                Reply = string.Join("\n", responses),
+                Timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex) when (attempt < maxRetries && IsTransientError(ex))
+        {
+            await Task.Delay(1000 * attempt); // backoff: 1s, 2s
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new { error = "AI agent call failed", detail = ex.InnerException?.Message ?? ex.Message, attempt },
+                statusCode: 502);
+        }
     }
 
-    return Results.Ok(new ChatResponse
-    {
-        Reply = string.Join("\n", responses),
-        Timestamp = DateTime.UtcNow
-    });
+    return Results.Json(new { error = "AI agent call failed after retries" }, statusCode: 502);
 })
 .WithName("Chat")
 .WithDescription("Chat with AI agent for customer management");
 
 app.Run();
+
+// Helper: detect transient network errors for retry logic
+static bool IsTransientError(Exception ex)
+{
+    for (var e = ex; e != null; e = e.InnerException)
+    {
+        if (e is HttpRequestException or System.Net.Http.HttpIOException or System.IO.IOException)
+            return true;
+        if (e.Message.Contains("ended prematurely", StringComparison.OrdinalIgnoreCase))
+            return true;
+    }
+    return false;
+}

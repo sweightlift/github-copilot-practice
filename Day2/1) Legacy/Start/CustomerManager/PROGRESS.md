@@ -126,6 +126,32 @@ POST /api/chat { "message": "Delete the customer with ID 4" }
 - Updated DIAGRAMS.html with agent architecture diagram and updated class diagram.
 - Updated INDEX.html with chat endpoint card and AI agent interactive section.
 
+### Step 12: Fix Chat Reliability & INDEX.html ✅
+Addressed intermittent failures from corporate network/proxy when calling GitHub Models, and removed the browser-based chat widget.
+
+#### Changes Made
+| Item | Detail |
+|------|--------|
+| **Program.cs** | Replaced `HttpClientHandler` with `SocketsHttpHandler` + custom SSL validation for HTTP/2 compatibility |
+| **Program.cs** | Added retry logic — up to **3 attempts** with exponential backoff (1s, 2s) for transient `HttpRequestException`/`HttpIOException` |
+| **Program.cs** | Added `IsTransientError()` helper that walks the full exception chain |
+| **Program.cs** | Agent errors now return structured `502` JSON: `{ error, detail, attempt }` |
+| **Program.cs** | Removed CORS middleware (no longer needed without browser chat widget) |
+| **INDEX.html** | Replaced interactive chat widget with a **static info card** showing PowerShell/curl examples |
+| **INDEX.html** | Removed `sendChat()` JavaScript function |
+
+#### Reason
+Corporate network policies cause intermittent SSL/connection failures when the browser (or .NET `HttpClientHandler`) tries to reach `https://models.inference.ai.azure.com`. The `SocketsHttpHandler` with `RemoteCertificateValidationCallback` resolves the SSL issue, and the retry logic handles the remaining transient drops.
+
+#### Test Results (all via PowerShell)
+```
+POST /api/chat { "message": "List all customers" }         → ✅ returned 3 customers
+POST /api/chat { "message": "Search for Jane" }             → ✅ found Jane Smith
+POST /api/chat { "message": "Add ... TestUser ..." }        → ✅ created ID 4
+POST /api/chat { "message": "Update customer 4 ..." }       → ✅ updated name & email
+POST /api/chat { "message": "Delete customer with ID 4" }   → ✅ deleted
+```
+
 ### Notes / Issues Encountered
 - `dotnet` was not on PATH initially — used full path `C:\Program Files\dotnet\dotnet.exe` to verify, then PATH resolved after terminal restart.
 - Running without `--environment Development` starts in Production mode, which disables Swagger middleware.

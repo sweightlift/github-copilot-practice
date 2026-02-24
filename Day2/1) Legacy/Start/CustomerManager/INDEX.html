@@ -307,30 +307,36 @@
                         <td><span class="method post" style="background:#8b5cf6;">POST</span></td>
                         <td>/api/chat</td>
                         <td>AI Agent — natural language customer management</td>
-                        <td><a href="#chat-section">&#8599; Try Below</a></td>
+                        <td><a href="http://localhost:5000/swagger/index.html" target="_blank">&#8599; Swagger</a></td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- ============ AI Agent Chat ============ -->
+    <!-- ============ AI Agent Chat (info only) ============ -->
     <div class="card full-width" id="chat-section">
         <div class="card-header">
             <span class="icon">&#129302;</span>
             <h2>AI Agent Chat</h2>
         </div>
         <div class="card-body">
-            <p>Chat with the AI agent in natural language. It uses Microsoft Agent Framework (Semantic Kernel) + GitHub Models to call customer tools automatically.</p>
-            <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-                <input id="chat-input" type="text" placeholder="e.g. Show me all customers" style="flex:1;padding:0.6rem 1rem;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:0.9rem;" onkeydown="if(event.key==='Enter')sendChat()">
-                <button onclick="sendChat()" style="padding:0.6rem 1.2rem;border-radius:6px;border:none;background:#8b5cf6;color:#fff;font-weight:600;cursor:pointer;font-size:0.9rem;">Send</button>
-            </div>
-            <div id="chat-output" style="margin-top:1rem;padding:1rem;border-radius:8px;background:#0f172a;border:1px solid #334155;min-height:60px;white-space:pre-wrap;font-size:0.88rem;color:#94a3b8;max-height:400px;overflow-y:auto;">
-                Agent replies will appear here...
+            <p>The AI Agent uses <strong>Microsoft Agent Framework (Semantic Kernel)</strong> + <strong>GitHub Models</strong> to manage customers via natural language.</p>
+            <p style="margin-top:0.6rem;">Due to corporate network policies, the chat widget is not available in the browser. Use one of these methods instead:</p>
+            <div style="margin-top:1rem;padding:1rem;border-radius:8px;background:#0f172a;border:1px solid #334155;font-size:0.85rem;color:#94a3b8;white-space:pre-wrap;font-family:monospace;">## PowerShell
+$body = @{ message = "List all customers" } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:5000/api/chat" `
+  -Method Post -Body $body -ContentType "application/json"
+
+## curl
+curl -X POST http://localhost:5000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Search for Jane"}'</div>
+            <div style="margin-top:0.8rem;">
+                <a class="card-link" href="http://localhost:5000/swagger/index.html" target="_blank">&#9889; Open Swagger UI</a>
             </div>
             <div style="margin-top:0.6rem;font-size:0.8rem;color:#64748b;">
-                <strong>Try:</strong> "List all customers" &bull; "Search for Jane" &bull; "Add a customer named Test User with email test@mail.com" &bull; "Delete customer 4"
+                <strong>Example prompts:</strong> "List all customers" &bull; "Search for Jane" &bull; "Add a customer named Test User with email test@mail.com" &bull; "Delete customer 4"
             </div>
         </div>
     </div>
@@ -409,37 +415,6 @@
     }
     checkHealth();
     setInterval(checkHealth, 10000);
-
-    // AI Agent Chat
-    async function sendChat() {
-        const input = document.getElementById('chat-input');
-        const output = document.getElementById('chat-output');
-        const message = input.value.trim();
-        if (!message) return;
-
-        output.textContent = '⏳ Thinking...';
-        input.value = '';
-
-        try {
-            const res = await fetch('http://localhost:5000/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message }),
-                signal: AbortSignal.timeout(30000)
-            });
-            const data = await res.json();
-            if (res.ok) {
-                output.textContent = data.reply || '(empty response)';
-                output.style.color = '#6ee7b7';
-            } else {
-                output.textContent = '❌ ' + (data || JSON.stringify(data));
-                output.style.color = '#fca5a5';
-            }
-        } catch (e) {
-            output.textContent = '❌ Error: ' + e.message;
-            output.style.color = '#fca5a5';
-        }
-    }
 </script>
 
 </body>

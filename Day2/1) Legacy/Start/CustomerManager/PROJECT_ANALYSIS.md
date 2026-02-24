@@ -43,6 +43,8 @@ CustomerManager/
 - **All endpoints defined inline as Minimal API** using `MapGet`, `MapPost`, `MapPut`, `MapDelete`.
 - Customer endpoints grouped under `app.MapGroup("/api/customers")`.
 - **AI Agent Chat endpoint** (`POST /api/chat`) — creates a Semantic Kernel `ChatCompletionAgent` connected to GitHub Models, with `CustomerPlugin` tools for automatic function calling.
+- Chat endpoint includes **retry logic** (up to 3 attempts with exponential backoff) for transient network failures.
+- Uses `SocketsHttpHandler` with custom SSL validation to handle corporate proxy/certificate issues.
 
 ### 2. Models (`DomainModels.cs`)
 
@@ -110,6 +112,8 @@ CustomerManager/
 - Uses **GitHub Models** (`gpt-4o-mini` via `https://models.inference.ai.azure.com`).
 - Agent is powered by **Microsoft Semantic Kernel Agent Framework** with `ChatCompletionAgent`.
 - Tool calling is automatic: the LLM decides which `CustomerPlugin` function to invoke.
+- Includes **retry with backoff** (3 attempts) for transient `HttpRequestException` / `HttpIOException` errors.
+- Returns structured `502` JSON error (`{ error, detail, attempt }`) when all retries are exhausted.
 
 #### Health Endpoint
 
