@@ -3,6 +3,11 @@ using Azure.AI.Inference;
 using CustomerManager.Models;
 using CustomerManager.Plugins;
 using CustomerManager.Services;
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.Extensions.AI;
+using OpenAI;
+using System.ComponentModel;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,7 +26,20 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 
+// AG-UI: Register the AG-UI protocol services for CopilotKit integration
+builder.Services.AddAGUI();
+
+// CORS: Allow the Next.js frontend (localhost:3000) to connect
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
 var app = builder.Build();
+app.UseCors("AllowFrontend");
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -183,7 +201,7 @@ app.MapPost("/api/chat", async (ChatRequest request, ICustomerService svc, IConf
                 }
 
                 // Final response
-                return Results.Ok(new ChatResponse
+                return Results.Ok(new CustomerManager.Models.ChatResponse
                 {
                     Reply = result.Content ?? "",
                     Timestamp = DateTime.UtcNow
@@ -207,6 +225,62 @@ app.MapPost("/api/chat", async (ChatRequest request, ICustomerService svc, IConf
 })
 .WithName("Chat")
 .WithDescription("Chat with AI agent for customer management");
+
+// ── AG-UI Agent endpoint (CopilotKit + Microsoft Agent Framework) ──
+{
+    var githubToken = app.Configuration["GitHubModels:ApiKey"]
+                   ?? Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+    var modelEndpoint = app.Configuration["GitHubModels:Endpoint"] ?? "https://models.github.ai/inference";
+    var modelId = app.Configuration["GitHubModels:ModelId"] ?? "openai/gpt-4o-mini";
+
+    var openAIClient = new OpenAIClient(
+        new System.ClientModel.ApiKeyCredential(githubToken!),
+        new OpenAIClientOptions { Endpoint = new Uri(modelEndpoint) });
+
+    var chatClient = openAIClient.GetChatClient(modelId).AsIChatClient();
+
+    // Build customer management tools using AIFunctionFactory
+    var svc = app.Services.CreateScope().ServiceProvider.GetRequiredService<ICustomerService>();
+
+    var agentTools = new List<AITool>
+    {
+        AIFunctionFactory.Create(
+            () => JsonSerializer.Serialize(svc.GetAllCustomers()),
+            "get_all_customers", "Get the full list of all customers"),
+        AIFunctionFactory.Create(
+            ([Description("The customer ID")] int id) => JsonSerializer.Serialize(svc.GetCustomer(id)),
+            "get_customer_by_id", "Get a single customer by their ID"),
+        AIFunctionFactory.Create(
+            ([Description("Name or partial name to search")] string name) => JsonSerializer.Serialize(svc.SearchCustomer(name)),
+            "search_customer", "Search for a customer by name (partial, case-insensitive match)"),
+        AIFunctionFactory.Create(
+            ([Description("Customer name")] string name, [Description("Customer email")] string email) =>
+                JsonSerializer.Serialize(svc.AddCustomer(new Customer { Name = name, Email = email })),
+            "add_customer", "Add a new customer with the given name and email"),
+        AIFunctionFactory.Create(
+            ([Description("Customer ID")] int id, [Description("New name")] string name, [Description("New email")] string email) =>
+                JsonSerializer.Serialize(svc.UpdateCustomer(id, new Customer { Name = name, Email = email })),
+            "update_customer", "Update an existing customer's name and/or email by their ID"),
+        AIFunctionFactory.Create(
+            ([Description("Customer ID to delete")] int id) => JsonSerializer.Serialize(svc.DeleteCustomer(id)),
+            "delete_customer", "Delete a customer by their ID"),
+    };
+
+    var agent = new ChatClientAgent(
+        chatClient,
+        name: "CustomerAgent",
+        description: """                                                  
+            You are a helpful customer management assistant.
+            You can look up, search, add, update, and delete customers using the available tools.
+            Always confirm actions with clear details.
+            When listing customers, format the information in a clear, readable way.
+            If a user request is ambiguous, ask for clarification.
+            Respond in the same language as the user's message.
+            """,
+        tools: agentTools);
+
+    app.MapAGUI("/agent", agent);
+}
 
 app.Run();
 
