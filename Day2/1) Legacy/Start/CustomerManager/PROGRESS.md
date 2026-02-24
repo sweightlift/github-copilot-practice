@@ -63,6 +63,14 @@ Added 4 new endpoints to `CustomersController` and corresponding service methods
 - Updated DIAGRAMS.html — added sequence diagrams for POST, PUT, DELETE; updated class diagram with CRUD methods.
 - Updated INDEX.html — added POST/PUT/DELETE to endpoint table with color-coded method badges.
 
+### Step 9: Convert to Minimal API ✅
+- Replaced `CustomersController` and `HealthController` with **Minimal API** endpoints in `Program.cs`.
+- Removed `Controllers/` folder entirely.
+- Used `app.MapGroup("/api/customers")` for clean route grouping.
+- Removed `builder.Services.AddControllers()` and `app.MapControllers()`.
+- Rebuilt and tested all 7 endpoints — all pass ✅.
+- Updated PROJECT_ANALYSIS.md, DIAGRAMS.html, and INDEX.html.
+
 ### Notes / Issues Encountered
 - `dotnet` was not on PATH initially — used full path `C:\Program Files\dotnet\dotnet.exe` to verify, then PATH resolved after terminal restart.
 - Running without `--environment Development` starts in Production mode, which disables Swagger middleware.

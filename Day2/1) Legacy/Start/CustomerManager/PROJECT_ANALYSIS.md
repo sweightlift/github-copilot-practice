@@ -6,7 +6,7 @@
 |------|--------|
 | **Type** | ASP.NET Core Web API |
 | **Framework** | .NET 8.0 |
-| **Architecture** | Controller → Service (2-layer) |
+| **Architecture** | Minimal API (single-file endpoints in Program.cs) |
 | **Data Store** | In-memory static list (no real database) |
 | **API Docs** | Swagger / Swashbuckle (dev only) |
 
@@ -18,12 +18,9 @@ A lightweight legacy-style REST API that manages customer data. Intended as a st
 
 ```
 CustomerManager/
-├── Program.cs                      # App entry point & DI/middleware config
+├── Program.cs                      # App entry point, DI config & all Minimal API endpoints
 ├── CustomerManager.csproj          # Project file (.NET 8, Swashbuckle)
 ├── appsettings.json                # Config (connection string, API key placeholder)
-├── Controllers/
-│   ├── CustomersController.cs      # CRUD-ish endpoints for customers
-│   └── HealthController.cs         # Health-check endpoint
 ├── Models/
 │   └── DomainModels.cs             # Customer, Order, HealthResponse
 └── Services/
@@ -34,12 +31,14 @@ CustomerManager/
 
 ## Key Components
 
-### 1. Program.cs — Application Bootstrap
+### 1. Program.cs — Application Bootstrap & Endpoints
 
 - Registers **Swagger** (title: *"Legacy API"*, v1.0.0).
 - Registers `ICustomerService` → `CustomerService` as **Scoped**.
-- Enables HTTPS redirection and maps controllers.
+- Enables HTTPS redirection.
 - Swagger UI is only exposed in the **Development** environment.
+- **All endpoints defined inline as Minimal API** using `MapGet`, `MapPost`, `MapPut`, `MapDelete`.
+- Customer endpoints grouped under `app.MapGroup("/api/customers")`.
 
 ### 2. Models (`DomainModels.cs`)
 
@@ -61,9 +60,9 @@ CustomerManager/
   - `UpdateCustomer` — updates Name and Email for existing customer by ID.
   - `DeleteCustomer` — removes customer by ID, returns success/failure.
 
-### 4. Controllers
+### 4. Endpoints (Minimal API in Program.cs)
 
-#### `CustomersController` (`/api/customers`)
+#### Customer Endpoints (`/api/customers`)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -79,7 +78,7 @@ CustomerManager/
 - DELETE returns `204 No Content` on success.
 - A `TODO` comment marks `GetCustomer` for conversion to an **Agent Tool** (Step 5).
 
-#### `HealthController` (`/`)
+#### Health Endpoint
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|

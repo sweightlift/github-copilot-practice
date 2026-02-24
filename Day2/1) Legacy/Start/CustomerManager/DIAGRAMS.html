@@ -119,24 +119,25 @@ classDiagram
     }
 
     class CustomersController {
-        -ICustomerService _customerService
-        +GetAllCustomers() ActionResult~List~Customer~~
-        +SearchCustomer(string name) ActionResult~Customer~
-        +GetCustomer(int id) ActionResult~Customer~
-        +AddCustomer(Customer) ActionResult~Customer~
-        +UpdateCustomer(int id, Customer) ActionResult~Customer~
-        +DeleteCustomer(int id) ActionResult
+        &lt;&lt;Minimal API&gt;&gt;
+        MapGet / GetAll
+        MapGet /search SearchCustomer
+        MapGet /id GetCustomer
+        MapPost / AddCustomer
+        MapPut /id UpdateCustomer
+        MapDelete /id DeleteCustomer
     }
 
-    class HealthController {
-        +Health() ActionResult~HealthResponse~
+    class HealthEndpoint {
+        &lt;&lt;Minimal API&gt;&gt;
+        MapGet /health
     }
 
     ICustomerService <|.. CustomerService : implements
     CustomerService --> Customer : manages
     CustomersController --> ICustomerService : depends on
     CustomersController --> Customer : returns
-    HealthController --> HealthResponse : returns
+    HealthEndpoint --> HealthResponse : returns
     Order --> Customer : CustomerId references
 
     note for Order "Defined but unused —\nno service or controller"
