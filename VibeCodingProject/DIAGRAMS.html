@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker — Architecture Diagrams</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            padding: 2rem;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            color: #1a1a2e;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        .diagram-section {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            max-width: 1100px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .diagram-section h2 {
+            color: #16213e;
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+        }
+        .diagram-section p {
+            color: #555;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            padding: 1rem 0;
+        }
+        .legend {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: #555;
+        }
+        .legend strong { color: #333; }
+        footer {
+            text-align: center;
+            color: #999;
+            margin-top: 2rem;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Smart Expense Tracker — Architecture Diagrams</h1>
+<p class="subtitle">Generated with GitHub Copilot &bull; .NET 9 Minimal API + AG-UI Agent + Next.js 15 + CopilotKit + Chart.js</p>
+
+<!-- ============================================================ -->
+<!-- 1. HIGH-LEVEL ARCHITECTURE                                     -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>1. High-Level Architecture</h2>
+    <p>Overview of all system components and how they communicate.</p>
+
+    <div class="mermaid">
+graph TB
+    subgraph Frontend ["Next.js 15 Frontend (localhost:3333)"]
+        UI["React UI<br/>ExpenseForm + ExpenseTable + StatsCharts"]
+        CK["CopilotKit Provider<br/>CopilotSidebar"]
+        RT["CopilotKit Runtime<br/>/api/copilotkit"]
+        Charts["Chart.js<br/>Pie + Bar Charts"]
+    end
+
+    subgraph Backend [".NET 9 Backend (localhost:5000)"]
+        API["Minimal API Endpoints<br/>/api/expenses/* | /stats/*"]
+        Agent["/agent (AG-UI SSE)<br/>ChatClientAgent"]
+        SVC["IExpenseService<br/>ExpenseService"]
+        EP["ExpenseEndpoints<br/>MapGroup Extensions"]
+    end
+
+    subgraph LLM ["GitHub Models"]
+        GPT["openai/gpt-4o-mini<br/>models.github.ai"]
+    end
+
+    UI -->|"REST API calls"| API
+    Charts -->|"Fetch stats data"| API
+    CK -->|"Chat messages"| RT
+    RT -->|"AG-UI protocol"| Agent
+    API --> EP --> SVC
+    Agent -->|"Tool calls"| SVC
+    Agent <-->|"Prompt + Tools"| GPT
+    </div>
+
+    <div class="legend">
+        <strong>Data Flow:</strong>
+        1. User enters expenses via React form → REST POST to .NET backend →
+        2. User views stats/charts → REST GET from /stats/* endpoints →
+        3. User asks AI questions in CopilotSidebar → CopilotKit → AG-UI → ChatClientAgent → GitHub Models →
+        4. LLM calls tools (get_monthly_stats, etc.) → ExpenseService executes → Results streamed back via SSE
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. CLASS DIAGRAM                                               -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>2. Class Diagram</h2>
+    <p>Domain models, service interface, and endpoint structure.</p>
+
+    <div class="mermaid">
+classDiagram
+    direction LR
+
+    class Expense {
+        +int Id
+        +decimal Amount
+        +string Category
+        +DateTime Date
+        +string? Description
+    }
+
+    class ExpenseRequest {
+        +decimal Amount
+        +string Category
+        +DateTime Date
+        +string? Description
+    }
+
+    class MonthlyStats {
+        +decimal Total
+        +decimal DailyAverage
+        +string HighestCategory
+        +int TransactionCount
+    }
+
+    class CategoryBreakdown {
+        +string Category
+        +decimal Total
+        +int Count
+        +decimal Percentage
+    }
+
+    class HealthResponse {
+        +string Status
+        +string Message
+        +DateTime Timestamp
+    }
+
+    class IExpenseService {
+        &lt;&lt;interface&gt;&gt;
+        +GetAllExpenses() List~Expense~
+        +GetExpense(int id) Expense?
+        +AddExpense(Expense) Expense
+        +UpdateExpense(int id, Expense) Expense?
+        +DeleteExpense(int id) bool
+        +GetMonthlyStats(int year, int month) MonthlyStats
+        +GetCategoryBreakdown(int year, int month) List~CategoryBreakdown~
+        +SearchExpenses(string? cat, DateTime? from, DateTime? to) List~Expense~
+    }
+
+    class ExpenseService {
+        -List~Expense~ _expenses
+        -List~Expense~ _seedData$
+        +ExpenseService()
+        +ExpenseService(List~Expense~)
+        +GetAllExpenses() List~Expense~
+        +GetExpense(int id) Expense?
+        +AddExpense(Expense) Expense
+        +UpdateExpense(int id, Expense) Expense?
+        +DeleteExpense(int id) bool
+        +GetMonthlyStats(int year, int month) MonthlyStats
+        +GetCategoryBreakdown(int year, int month) List~CategoryBreakdown~
+        +SearchExpenses(string? cat, DateTime? from, DateTime? to) List~Expense~
+    }
+
+    class ExpenseEndpoints {
+        &lt;&lt;static&gt;&gt;
+        +MapExpenseEndpoints(WebApplication)
+        -TryParseYearMonth(string) bool
+    }
+
+    IExpenseService <|.. ExpenseService : implements
+    ExpenseService --> Expense : manages
+    ExpenseService --> MonthlyStats : produces
+    ExpenseService --> CategoryBreakdown : produces
+    ExpenseEndpoints --> IExpenseService : uses (DI)
+    ExpenseEndpoints --> ExpenseRequest : receives
+    </div>
+
+    <div class="legend">
+        <strong>Key Points:</strong>
+        IExpenseService defines 8 methods (5 CRUD + 3 statistics).
+        ExpenseService has two constructors: parameterless (production, uses seed data) and
+        List&lt;Expense&gt; (testing, for isolation).
+        ExpenseEndpoints is a static extension class keeping Program.cs focused.
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. API ENDPOINT MAP                                            -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>3. API Endpoint Map</h2>
+    <p>All REST and AI endpoints with request/response flow.</p>
+
+    <div class="mermaid">
+graph LR
+    subgraph REST ["REST Endpoints"]
+        H["GET /health"]
+        GA["GET /api/expenses"]
+        GI["GET /api/expenses/:id"]
+        PA["POST /api/expenses"]
+        PU["PUT /api/expenses/:id"]
+        DA["DELETE /api/expenses/:id"]
+        SE["GET /api/expenses/search"]
+        SM["GET /stats/monthly"]
+        SC["GET /stats/categories"]
+    end
+
+    subgraph AI ["AI Endpoint"]
+        AG["POST /agent<br/>(AG-UI SSE)"]
+    end
+
+    subgraph Service ["ExpenseService"]
+        SVC["IExpenseService"]
+    end
+
+    H -->|"HealthResponse"| RES1["{ status, timestamp }"]
+    GA --> SVC
+    GI --> SVC
+    PA -->|"ExpenseRequest"| SVC
+    PU -->|"ExpenseRequest"| SVC
+    DA --> SVC
+    SE -->|"?category&from&to"| SVC
+    SM -->|"?month=YYYY-MM"| SVC
+    SC -->|"?month=YYYY-MM"| SVC
+    AG -->|"6 AI Tools"| SVC
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. AG-UI PROTOCOL SEQUENCE                                     -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>4. AG-UI Protocol Sequence</h2>
+    <p>How a natural language query flows through the CopilotKit → AG-UI → LLM pipeline.</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant Sidebar as CopilotSidebar
+    participant Runtime as CopilotKit Runtime<br/>(Next.js /api/copilotkit)
+    participant Agent as ChatClientAgent<br/>(.NET /agent)
+    participant LLM as GitHub Models<br/>(gpt-4o-mini)
+    participant SVC as ExpenseService
+
+    User->>Sidebar: "What did I spend most on in February?"
+    Sidebar->>Runtime: POST /api/copilotkit
+    Runtime->>Agent: POST /agent (AG-UI)
+
+    Note over Agent: SSE: RUN_STARTED
+
+    Agent->>LLM: Prompt + Tool Schemas
+    LLM-->>Agent: tool_call: get_monthly_stats(2026, 2)
+
+    Note over Agent: SSE: TOOL_CALL_START
+
+    Agent->>SVC: GetMonthlyStats(2026, 2)
+    SVC-->>Agent: { total: 572, highest: "Shopping", ... }
+
+    Note over Agent: SSE: TOOL_CALL_RESULT
+
+    Agent->>LLM: Tool result
+    LLM-->>Agent: "In February, your highest spending category was Shopping..."
+
+    Note over Agent: SSE: TEXT_MESSAGE_CONTENT
+    Note over Agent: SSE: RUN_FINISHED
+
+    Agent-->>Runtime: SSE stream complete
+    Runtime-->>Sidebar: Response text
+    Sidebar-->>User: Display answer
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5. FRONTEND COMPONENT TREE                                     -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>5. Frontend Component Tree</h2>
+    <p>React component hierarchy and data flow in the Next.js app.</p>
+
+    <div class="mermaid">
+graph TD
+    Layout["layout.tsx<br/>CopilotKit Provider"]
+    Page["page.tsx<br/>Main Dashboard"]
+    Sidebar["CopilotSidebar<br/>AI Chat Interface"]
+    Form["ExpenseForm<br/>Add New Expense"]
+    Table["ExpenseTable<br/>Expense List + Delete"]
+    Stats["StatsCharts<br/>Pie + Bar Charts"]
+    Route["api/copilotkit/route.ts<br/>CopilotKit Runtime → AG-UI Bridge"]
+
+    Layout --> Page
+    Page --> Sidebar
+    Page --> Form
+    Page --> Table
+    Page --> Stats
+
+    Sidebar -.->|"Chat messages"| Route
+    Route -.->|"HttpAgent"| Backend[".NET /agent"]
+
+    Form -->|"POST /api/expenses"| API[".NET REST API"]
+    Table -->|"GET + DELETE /api/expenses"| API
+    Stats -->|"GET /stats/*"| API
+    </div>
+
+    <div class="legend">
+        <strong>Solid lines:</strong> React component hierarchy &bull;
+        <strong>Dashed lines:</strong> HTTP requests to .NET backend &bull;
+        <strong>Components:</strong> ExpenseForm (input), ExpenseTable (list with delete), StatsCharts (Chart.js pie + bar)
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 6. TEST COVERAGE MAP                                           -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>6. Test Coverage Map</h2>
+    <p>23 xUnit tests organized by the service methods they verify.</p>
+
+    <div class="mermaid">
+graph TD
+    subgraph Tests ["ExpenseServiceTests (23 tests)"]
+        subgraph MS ["Monthly Stats (6)"]
+            T1["CorrectTotal"]
+            T2["CorrectDailyAverage"]
+            T3["HighestCategory"]
+            T4["TransactionCount"]
+            T5["EmptyMonth → Zeros"]
+            T6["MonthIsolation"]
+        end
+        subgraph CB ["Category Breakdown (4)"]
+            T7["CalculatesPercentages"]
+            T8["SortedByTotal"]
+            T9["EmptyMonth → Empty"]
+            T10["PercentagesSum100"]
+        end
+        subgraph CRUD ["CRUD Operations (7)"]
+            T11["AddAssignsId"]
+            T12["FirstExpenseGetsId1"]
+            T13["InvalidAmount → Throw"]
+            T14["EmptyCategory → Throw"]
+            T15["DeleteExisting → True"]
+            T16["DeleteNonExistent → False"]
+            T17["UpdateExisting"]
+        end
+        subgraph SR ["Search (5)"]
+            T18["FilterByCategory"]
+            T19["FilterByDateRange"]
+            T20["CombinedFilters"]
+            T21["NoFilters → All"]
+            T22["NoMatch → Empty"]
+        end
+    end
+
+    subgraph Service ["ExpenseService Methods"]
+        GMS["GetMonthlyStats()"]
+        GCB["GetCategoryBreakdown()"]
+        ADD["AddExpense()"]
+        UPD["UpdateExpense()"]
+        DEL["DeleteExpense()"]
+        SCH["SearchExpenses()"]
+        GET["GetAllExpenses()"]
+    end
+
+    MS --> GMS
+    CB --> GCB
+    T11 & T12 & T13 & T14 --> ADD
+    T17 --> UPD
+    T15 & T16 --> DEL
+    SR --> SCH
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 7. PROJECT STRUCTURE                                           -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>7. Project Structure</h2>
+    <p>File organization across backend, tests, and frontend.</p>
+
+    <div class="mermaid">
+graph TD
+    Root["VibeCodingProject/"]
+
+    Root --> ET["ExpenseTracker/<br/>.NET 9 Backend"]
+    Root --> Tests["ExpenseTracker.Tests/<br/>xUnit Tests"]
+    Root --> Web["expense-tracker-web/<br/>Next.js 15 Frontend"]
+    Root --> Docs["Documentation"]
+
+    ET --> Prog["Program.cs<br/>DI, CORS, Swagger, AG-UI"]
+    ET --> Models["Models/<br/>ExpenseModels.cs"]
+    ET --> Services["Services/<br/>ExpenseService.cs"]
+    ET --> Endpoints["Endpoints/<br/>ExpenseEndpoints.cs"]
+    ET --> Config["appsettings.json<br/>(placeholder config)"]
+
+    Tests --> TestFile["ExpenseServiceTests.cs<br/>23 unit tests"]
+
+    Web --> AppDir["src/app/"]
+    AppDir --> LayoutTsx["layout.tsx"]
+    AppDir --> PageTsx["page.tsx"]
+    AppDir --> ApiRoute["api/copilotkit/route.ts"]
+    AppDir --> Components["components/<br/>ExpenseForm, ExpenseTable, StatsCharts"]
+
+    Docs --> Plan["PLAN.md"]
+    Docs --> Progress["PROGRESS.md"]
+    Docs --> Diagrams["DIAGRAMS.html"]
+    Docs --> README["README.md"]
+    </div>
+</div>
+
+<footer>
+    Smart Expense Tracker with Analytics API &bull; Generated February 24, 2026 &bull; GitHub Copilot Assisted
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'default',
+        securityLevel: 'loose',
+        flowchart: { curve: 'basis', htmlLabels: true },
+        sequence: { actorMargin: 50, messageMargin: 40 }
+    });
+</script>
+</body>
+</html>
