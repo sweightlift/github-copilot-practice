@@ -214,9 +214,9 @@ public interface IExpenseService
 - [x] **Step 6:** Test all REST endpoints manually (PowerShell) ✅
 
 ### Phase 2: Testing
-- [ ] **Step 7:** Create xUnit test project
-- [ ] **Step 8:** Write unit tests for all core logic methods
-- [ ] **Step 9:** Run tests, ensure all pass
+- [x] **Step 7:** Create xUnit test project + add project reference ✅
+- [x] **Step 8:** Write 23 unit tests covering all core logic methods ✅
+- [x] **Step 9:** Run tests — all 23 passed ✅
 
 ### Phase 3: AI Agent
 - [ ] **Step 10:** Add AG-UI + GitHub Models NuGet packages

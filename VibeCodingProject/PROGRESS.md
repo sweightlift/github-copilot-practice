@@ -69,7 +69,30 @@ All endpoints verified:
 
 ---
 
-## Phase 2: Testing — NOT STARTED
+## Phase 2: Testing ✅ COMPLETE
+
+**Date:** February 24, 2026
+
+### Step 7 — xUnit Test Project
+- Created `ExpenseTracker.Tests` project via `dotnet new xunit`
+- Added project reference to `ExpenseTracker`
+- Refactored `ExpenseService` to accept `List<Expense>` via constructor for test isolation
+  - Default (parameterless) constructor still uses static seed data → no breaking change
+
+### Step 8 — Unit Tests Written
+- **23 test cases** in `ExpenseServiceTests.cs` covering:
+
+| Category | Tests | What's Verified |
+|----------|-------|-----------------|
+| Monthly Stats (6) | Total, DailyAverage, HighestCategory, TransactionCount, EmptyMonth, MonthIsolation | Core aggregation logic |
+| Category Breakdown (4) | Percentages, SortOrder, EmptyMonth, PercentagesSumTo100 | Grouping & calculation |
+| CRUD (7) | AddId, FirstId, InvalidAmount, EmptyCategory, Delete, DeleteNonExistent, Update, UpdateNonExistent | Validation & operations |
+| Search (5) | CategoryFilter, DateRange, CombinedFilters, NoFilters, NoMatch | Query filtering |
+
+### Step 9 — Tests Executed
+```
+Test summary: Total: 23, Failed: 0, Passed: 23, Skipped: 0, Duration: 5.2s
+```
 
 ## Phase 3: AI Agent — NOT STARTED
 

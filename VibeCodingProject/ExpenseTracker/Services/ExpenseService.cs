@@ -23,12 +23,17 @@ public interface IExpenseService
 
 /// <summary>
 /// In-memory implementation of IExpenseService with seed data.
+/// Accepts an optional list for testability; defaults to static seed data for production.
 /// </summary>
 public class ExpenseService : IExpenseService
 {
-    private static readonly List<Expense> _expenses = new()
+    private readonly List<Expense> _expenses;
+
+    /// <summary>
+    /// Default seed data — February 2026.
+    /// </summary>
+    private static readonly List<Expense> _seedData = new()
     {
-        // Seed data — February 2026
         new Expense { Id = 1, Amount = 12.50m, Category = "Food", Date = new DateTime(2026, 2, 1), Description = "Lunch at cafe" },
         new Expense { Id = 2, Amount = 45.00m, Category = "Transport", Date = new DateTime(2026, 2, 2), Description = "Monthly bus pass top-up" },
         new Expense { Id = 3, Amount = 120.00m, Category = "Shopping", Date = new DateTime(2026, 2, 3), Description = "Winter jacket" },
@@ -42,6 +47,19 @@ public class ExpenseService : IExpenseService
         new Expense { Id = 11, Amount = 25.00m, Category = "Entertainment", Date = new DateTime(2026, 2, 20), Description = "Concert streaming" },
         new Expense { Id = 12, Amount = 9.80m, Category = "Food", Date = new DateTime(2026, 2, 22), Description = "Breakfast takeout" },
     };
+
+    /// <summary>
+    /// Production constructor — uses static seed data.
+    /// </summary>
+    public ExpenseService() : this(_seedData) { }
+
+    /// <summary>
+    /// Test constructor — accepts custom data for isolation.
+    /// </summary>
+    public ExpenseService(List<Expense> expenses)
+    {
+        _expenses = expenses;
+    }
 
     // ── CRUD ──────────────────────────────────────────────
 
