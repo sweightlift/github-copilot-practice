@@ -94,7 +94,37 @@ All endpoints verified:
 Test summary: Total: 23, Failed: 0, Passed: 23, Skipped: 0, Duration: 5.2s
 ```
 
-## Phase 3: AI Agent — NOT STARTED
+## Phase 3: AI Agent ✅ COMPLETE
+
+**Date:** February 24, 2026
+
+### Step 10 — NuGet Packages Added
+- `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` 1.0.0-preview.251110.1
+- `Microsoft.Extensions.AI.OpenAI` 9.10.2-preview.1.25552.1
+- Initialized `dotnet user-secrets` for secure API key storage
+
+### Step 11 — Agent Wired Up
+- `Program.cs` updated with AG-UI agent setup (~160 lines, still manageable)
+- 6 AI tools registered via `AIFunctionFactory.Create()`:
+  - `get_all_expenses` — list all expenses
+  - `add_expense` — add new expense (amount, category, date, description)
+  - `delete_expense` — delete by ID
+  - `get_monthly_stats` — monthly total, daily average, highest category
+  - `get_category_breakdown` — per-category totals and percentages
+  - `search_expenses` — filter by category and/or date range
+- `ChatClientAgent` configured with system prompt
+- `MapAGUI("/agent", agent)` endpoint registered
+- SSL bypass for corporate environments included
+- API key loaded from user-secrets → env var fallback chain
+
+### Step 12 — Agent Testing ✅
+- Full AG-UI SSE flow verified:
+  - `RUN_STARTED` → `TOOL_CALL_START` (get_monthly_stats) → `TOOL_CALL_ARGS` → `TOOL_CALL_END` → `TOOL_CALL_RESULT` → `TEXT_MESSAGE_START` → `TEXT_MESSAGE_CONTENT` → `TEXT_MESSAGE_END` → `RUN_FINISHED`
+- LLM correctly called `get_monthly_stats(2026, 2)` and returned: "Your total spending for February 2026 is $572.00."
+- New PAT set via `dotnet user-secrets` (initial PAT was expired)
+  ```powershell
+  dotnet user-secrets set "GitHubModels:ApiKey" "github_pat_YOUR_NEW_TOKEN" --project ExpenseTracker
+  ```
 
 ## Phase 4: Frontend — NOT STARTED
 

@@ -219,9 +219,9 @@ public interface IExpenseService
 - [x] **Step 9:** Run tests — all 23 passed ✅
 
 ### Phase 3: AI Agent
-- [ ] **Step 10:** Add AG-UI + GitHub Models NuGet packages
-- [ ] **Step 11:** Register AI tools and wire up ChatClientAgent
-- [ ] **Step 12:** Test `/agent` endpoint with raw SSE call
+- [x] **Step 10:** Add AG-UI + GitHub Models NuGet packages ✅
+- [x] **Step 11:** Register 6 AI tools and wire up ChatClientAgent ✅
+- [x] **Step 12:** Test `/agent` endpoint — full SSE flow verified ✅
 
 ### Phase 4: Frontend
 - [ ] **Step 13:** Scaffold Next.js app with CopilotKit + Tailwind
