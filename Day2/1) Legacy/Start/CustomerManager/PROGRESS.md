@@ -188,6 +188,83 @@ POST /api/chat { "message": "Delete customer with ID 4" }       → ✅ deleted
 POST /api/chat { "message": "고객 목록을 보여주세요" }            → ✅ Korean prompt handled
 ```
 
+### Step 14: CopilotKit + Microsoft Agent Framework Integration ✅
+Integrated **CopilotKit** with the **Microsoft Agent Framework** (AG-UI protocol) to provide a React-based chat frontend powered by the .NET AI agent.
+
+#### What Changed
+| Item | Before | After |
+|------|--------|-------|
+| .NET SDK | 8.0.418 | **9.0.311** (required by AG-UI packages) |
+| TFM | `net8.0` | **`net9.0`** |
+| New NuGet | — | `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` 1.0.0-preview.251110.1 |
+| New NuGet | — | `Microsoft.Extensions.AI.OpenAI` 9.10.2-preview.1.25552.1 |
+| New NuGet | — | `OpenAI` 2.6.0 (transitive) |
+| New Endpoint | — | `POST /agent` (AG-UI SSE streaming) |
+| Frontend | None | **Next.js 15 + CopilotKit 1.51.4** (`customer-manager-web/`) |
+| Node.js | Not installed | **v24.13.1 LTS** (via winget) |
+| CORS | Not configured | `localhost:3000` + `localhost:3333` |
+
+#### Architecture
+```
+┌──────────────────────────┐     AG-UI (SSE)     ┌─────────────────────────────┐
+│  Next.js Frontend        │◄───────────────────► │  .NET 9 Backend             │
+│  localhost:3333           │                      │  localhost:5000              │
+│                          │                      │                             │
+│  CopilotKit Provider     │  /api/copilotkit     │  Minimal API                │
+│  CopilotSidebar          │────────────────────► │  /api/customers/* (REST)    │
+│                          │                      │  /health                    │
+│  @copilotkit/runtime     │                      │  /api/chat (legacy)         │
+│  @ag-ui/client           │                      │  /agent (AG-UI MapAGUI)     │
+│                          │                      │    └── ChatClientAgent      │
+└──────────────────────────┘                      │        └── 6 AI Tools       │
+                                                  └─────────────────────────────┘
+```
+
+#### New Files Created
+| File | Purpose |
+|------|---------|
+| `customer-manager-web/` | Next.js 15 app (scaffolded via `create-next-app`) |
+| `customer-manager-web/src/app/api/copilotkit/route.ts` | CopilotKit Runtime → AG-UI bridge (`HttpAgent` → `localhost:5000/agent`) |
+| `customer-manager-web/src/app/layout.tsx` | Root layout with `<CopilotKit>` provider wrapper |
+| `customer-manager-web/src/app/page.tsx` | Customer Manager page with `<CopilotSidebar>` chat UI |
+
+#### AG-UI Agent Configuration (Program.cs)
+```csharp
+// OpenAI client → IChatClient (GitHub Models)
+var chatClient = openAI.GetChatClient("openai/gpt-4o-mini").AsIChatClient();
+
+// 6 tools registered via AIFunctionFactory.Create()
+var agent = new ChatClientAgent(chatClient, tools: [
+    AIFunctionFactory.Create(get_all_customers, ...),
+    AIFunctionFactory.Create(get_customer_by_id, ...),
+    AIFunctionFactory.Create(search_customer, ...),
+    AIFunctionFactory.Create(add_customer, ...),
+    AIFunctionFactory.Create(update_customer, ...),
+    AIFunctionFactory.Create(delete_customer, ...),
+]);
+
+app.MapAGUI("/agent", agent);
+```
+
+#### Test Results
+| Test | Result |
+|------|--------|
+| `GET /health` | ✅ Healthy |
+| `GET /api/customers` | ✅ 3 seed customers |
+| `POST /api/chat` (legacy) | ✅ Still works |
+| `POST /agent` ("List all customers") | ✅ SSE stream: `RUN_STARTED → TOOL_CALL(get_all_customers) → TOOL_CALL_RESULT → TEXT_MESSAGE` |
+| Next.js `GET /` | ✅ 200 — page renders |
+| CopilotKit `POST /api/copilotkit` | ✅ 200 — runtime forwards to AG-UI agent |
+
+#### Issues Encountered & Resolved
+| Issue | Resolution |
+|-------|-----------|
+| `.NET 9 first-run error` (`Microsoft.Build` not found) | Retry — SDK initialization completed on 2nd build |
+| `npm naming restriction` (`CustomerManager.Web` rejected) | Renamed to `customer-manager-web` |
+| `CS0104 ChatResponse ambiguity` | Fully qualified: `CustomerManager.Models.ChatResponse` |
+| Port 3000/3001 unavailable | Used port 3333; updated CORS policy |
+| Next.js slow first compile (>2 min) | Waited for compilation to complete |
+
 ### Notes / Issues Encountered
 - `dotnet` was not on PATH initially — used full path `C:\Program Files\dotnet\dotnet.exe` to verify, then PATH resolved after terminal restart.
 - Running without `--environment Development` starts in Production mode, which disables Swagger middleware.

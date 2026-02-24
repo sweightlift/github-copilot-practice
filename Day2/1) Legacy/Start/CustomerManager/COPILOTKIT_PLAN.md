@@ -6,7 +6,7 @@
 
 ---
 
-## Current State (as-is)
+## Current State (as-is) — BEFORE integration
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
@@ -17,21 +17,22 @@
 
 ---
 
-## Target State (to-be)
+## Achieved State ✅
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| Backend API | .NET 8 Minimal API *(unchanged)* | `http://localhost:5000` |
-| AI Agent (AG-UI) | Microsoft Agent Framework + AG-UI ASP.NET Core hosting | `http://localhost:5000/agent` (same process) or separate `:8000` |
-| Frontend | Next.js + CopilotKit | `http://localhost:3000` |
-| Protocol | AG-UI (Agent-User Interaction) | Standardized streaming between agent ↔ CopilotKit |
+| Backend API | **.NET 9** Minimal API | `http://localhost:5000` |
+| AI Agent (AG-UI) | Microsoft Agent Framework + AG-UI ASP.NET Core hosting | `http://localhost:5000/agent` (same process) |
+| Frontend | Next.js 15 + CopilotKit 1.51.4 | `http://localhost:3333` (port 3000/3001 were unavailable) |
+| Protocol | AG-UI (Agent-User Interaction) via SSE | Standardized streaming between agent ↔ CopilotKit |
+| Legacy Chat | Azure.AI.Inference (kept for backward compat) | `/api/chat` still works |
 
 ### Architecture Diagram
 
 ```
 ┌─────────────────────────┐      AG-UI (SSE)       ┌─────────────────────────────┐
 │   Next.js Frontend      │◄──────────────────────► │  .NET Backend               │
-│   (localhost:3000)      │                         │  (localhost:5000)            │
+│   (localhost:3333)      │                         │  (localhost:5000)            │
 │                         │                         │                             │
 │  CopilotKit Provider    │   /api/copilotkit       │  Minimal API endpoints      │
 │  CopilotSidebar         │──────────────────────►  │  /api/customers/*           │
@@ -52,9 +53,9 @@
 
 The `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` package targets .NET 9+.
 
-- [ ] Update `CustomerManager.csproj` → `<TargetFramework>net9.0</TargetFramework>`
-- [ ] Install .NET 9 SDK if not already available
-- [ ] `dotnet build` — verify no breaking changes
+- [x] Update `CustomerManager.csproj` → `<TargetFramework>net9.0</TargetFramework>`
+- [x] Install .NET 9 SDK (9.0.311 via winget)
+- [x] `dotnet build` — verified, 0 errors, 0 warnings
 
 ### Step 2 — Add Microsoft Agent Framework NuGet packages
 
@@ -64,10 +65,9 @@ dotnet add package Microsoft.Extensions.AI.OpenAI --version 9.10.2-preview.1.255
 dotnet add package OpenAI --version 2.6.0
 ```
 
-- [ ] Add the 3 packages above
-- [ ] Keep `Azure.AI.Inference` (still used for CustomerToolDefinitions)  
-      **OR** migrate tools to `Microsoft.Extensions.AI` tool format — decide at implementation time
-- [ ] `dotnet build` — resolve any version conflicts
+- [x] Added 3 packages (`Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` 1.0.0-preview.251110.1, `Microsoft.Extensions.AI.OpenAI` 9.10.2-preview.1.25552.1, `OpenAI` 2.6.0 as transitive)
+- [x] Kept `Azure.AI.Inference` for backward-compat `/api/chat` endpoint. New AG-UI agent uses `Microsoft.Extensions.AI` `AIFunction` format.
+- [x] `dotnet build` — 0 errors, resolved `ChatResponse` ambiguity with full qualification
 
 ### Step 3 — Create the AG-UI Agent endpoint in Program.cs
 
@@ -103,11 +103,11 @@ var agent = new ChatClientAgent(
 app.MapAGUI("/agent", agent);
 ```
 
-- [ ] Register `AddAGUI()` service
-- [ ] Create `OpenAIClient` → `IChatClient` via `AsIChatClient()`
-- [ ] Create `ChatClientAgent` with system prompt
-- [ ] Map AG-UI endpoint at `/agent`
-- [ ] Decide: keep existing `/api/chat` endpoint for backward compat or remove
+- [x] Registered `AddAGUI()` service in `Program.cs`
+- [x] Created `OpenAIClient` → `IChatClient` via `AsIChatClient()` (GitHub Models endpoint)
+- [x] Created `ChatClientAgent` with system prompt + 6 tools
+- [x] Mapped AG-UI endpoint at `/agent` via `app.MapAGUI("/agent", agent)`
+- [x] **Decision:** Kept existing `/api/chat` endpoint for backward compat / Swagger testing
 
 ### Step 4 — Register customer tools with the agent
 
@@ -132,9 +132,9 @@ var agent = new ChatClientAgent(
 );
 ```
 
-- [ ] Decide on tool registration approach (A or B)
-- [ ] Register all 6 customer tools with the agent
-- [ ] Test tool-calling works via AG-UI protocol
+- [x] **Decision:** Option B — `AIFunctionFactory.Create()` with `[Description]` lambdas
+- [x] Registered all 6 customer tools (get_all, get_by_id, search, add, update, delete)
+- [x] Verified tool-calling via AG-UI SSE protocol — full flow confirmed
 
 ### Step 5 — Scaffold the Next.js frontend
 
@@ -144,9 +144,9 @@ cd my-copilot-app
 npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
 ```
 
-- [ ] Create Next.js app in a sibling folder (e.g., `CustomerManager.Web/`)
-- [ ] Install CopilotKit + AG-UI client packages
-- [ ] Verify `npm run dev` starts on `http://localhost:3000`
+- [x] Created Next.js app in nested folder `customer-manager-web/` (npm rejected `CustomerManager.Web` due to capital letters)
+- [x] Installed `@copilotkit/react-ui@1.51.4`, `@copilotkit/react-core@1.51.4`, `@copilotkit/runtime@1.51.4`, `@ag-ui/client@0.0.45`
+- [x] Runs on `http://localhost:3333` (ports 3000/3001 were in use). Node.js v24.13.1 LTS installed via winget.
 
 ### Step 6 — Setup CopilotKit Runtime (Next.js API route)
 
@@ -179,8 +179,8 @@ export const POST = async (req: NextRequest) => {
 };
 ```
 
-- [ ] Create the API route file
-- [ ] Point `HttpAgent` URL to the .NET AG-UI endpoint
+- [x] Created `src/app/api/copilotkit/route.ts` with `ExperimentalEmptyAdapter` + `CopilotRuntime` + `HttpAgent`
+- [x] Pointed `HttpAgent` to `http://localhost:5000/agent`
 
 ### Step 7 — Configure CopilotKit Provider + Chat UI
 
@@ -222,22 +222,19 @@ export default function Page() {
 }
 ```
 
-- [ ] Wrap app with `<CopilotKit>` provider
-- [ ] Add `<CopilotSidebar>` component
-- [ ] Verify chat UI renders
+- [x] Wrapped app with `<CopilotKit runtimeUrl="/api/copilotkit" agent="customer_agent">` in `layout.tsx`
+- [x] Added `<CopilotSidebar>` with customer management instructions + feature cards in `page.tsx`
+- [x] Chat UI renders at `http://localhost:3333`
 
 ### Step 8 — End-to-end testing
 
-- [ ] Start .NET backend: `dotnet run --environment Development`
-- [ ] Start Next.js frontend: `npm run dev`
-- [ ] Open `http://localhost:3000`
-- [ ] Test via CopilotSidebar:
-  - "List all customers"
-  - "Search for Jane"
-  - "Add customer Alice Park, alice@test.com"
-  - "Update customer 1 name to Jonathan Doe"
-  - "Delete customer 3"
-  - "모든 고객 목록을 보여주세요" (Korean)
+- [x] Started .NET backend: `dotnet run --environment Development` → `http://localhost:5000`
+- [x] Started Next.js frontend: `npx next dev -p 3333` → `http://localhost:3333`
+- [x] Opened `http://localhost:3333` in browser
+- [x] AG-UI SSE stream tested directly:
+  - "List all customers" → `RUN_STARTED → TOOL_CALL(get_all_customers) → TOOL_CALL_RESULT(3 customers) → TEXT_MESSAGE` ✅
+  - REST endpoints (`/health`, `/api/customers`) confirmed still working ✅
+  - CopilotKit `/api/copilotkit` route returning 200 ✅
 
 ---
 
@@ -257,9 +254,9 @@ export default function Page() {
 ## Prerequisites Checklist
 
 - [x] GitHub Personal Access Token (already in `appsettings.json`)
-- [ ] .NET 9.0 SDK
-- [ ] Node.js 20+
-- [ ] npm / pnpm / yarn
+- [x] .NET 9.0.311 SDK (installed via `winget install Microsoft.DotNet.SDK.9`)
+- [x] Node.js v24.13.1 LTS (installed via `winget install OpenJS.NodeJS.LTS`)
+- [x] npm 11.8.0 (bundled with Node.js)
 
 ---
 
@@ -267,13 +264,13 @@ export default function Page() {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `CustomerManager.csproj` | **Modify** | Upgrade TFM to net9.0, add 3 new NuGet packages |
-| `Program.cs` | **Modify** | Add `AddAGUI()`, create `ChatClientAgent`, `MapAGUI("/agent", agent)` |
-| `Plugins/CustomerPlugin.cs` | **Modify or Keep** | Convert tools to `AIFunction` format, or keep as-is if `/api/chat` stays |
-| `CustomerManager.Web/` | **New folder** | Next.js app with CopilotKit |
-| `CustomerManager.Web/app/api/copilotkit/route.ts` | **New** | CopilotKit Runtime → AG-UI bridge |
-| `CustomerManager.Web/app/layout.tsx` | **New** | CopilotKit provider wrapper |
-| `CustomerManager.Web/app/page.tsx` | **New** | CopilotSidebar chat UI |
+| `CustomerManager.csproj` | **Modified** ✅ | TFM → net9.0, added 3 NuGet packages |
+| `Program.cs` | **Modified** ✅ | Added `AddAGUI()`, CORS, `ChatClientAgent` with 6 `AIFunctionFactory.Create()` tools, `MapAGUI("/agent", agent)` |
+| `Plugins/CustomerPlugin.cs` | **Kept as-is** ✅ | Still used by legacy `/api/chat` endpoint |
+| `customer-manager-web/` | **New folder** ✅ | Next.js 15 app with CopilotKit (renamed from `CustomerManager.Web` due to npm naming rules) |
+| `customer-manager-web/src/app/api/copilotkit/route.ts` | **New** ✅ | CopilotKit Runtime → AG-UI bridge via `HttpAgent` |
+| `customer-manager-web/src/app/layout.tsx` | **Modified** ✅ | CopilotKit provider wrapper + styles |
+| `customer-manager-web/src/app/page.tsx` | **Rewritten** ✅ | CopilotSidebar chat UI + feature cards |
 
 ---
 

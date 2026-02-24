@@ -29,11 +29,11 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 // AG-UI: Register the AG-UI protocol services for CopilotKit integration
 builder.Services.AddAGUI();
 
-// CORS: Allow the Next.js frontend (localhost:3000) to connect
+// CORS: Allow the Next.js frontend to connect
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins("http://localhost:3000", "http://localhost:3333")
               .AllowAnyHeader()
               .AllowAnyMethod());
 });

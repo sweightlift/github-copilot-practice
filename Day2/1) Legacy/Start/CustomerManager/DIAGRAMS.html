@@ -64,7 +64,7 @@
 <body>
 
 <h1>CustomerManager — Architecture Diagrams</h1>
-<p class="subtitle">Auto-generated from project analysis &bull; .NET 8 Web API + AI Agent</p>
+<p class="subtitle">Auto-generated from project analysis &bull; .NET 9 Web API + AG-UI Agent + CopilotKit Frontend</p>
 
 <!-- ============================================================ -->
 <!-- CLASS DIAGRAM                                                  -->
@@ -199,6 +199,64 @@ classDiagram
         Dashed arrow with triangle = implements interface &bull;
         <code>$</code> = static member &bull;
         <span style="color:#e74c3c;">Order</span> model exists but is not wired to any service or controller.
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- AG-UI / COPILOTKIT ARCHITECTURE DIAGRAM                        -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>1b. AG-UI + CopilotKit Architecture</h2>
+    <p>Shows the CopilotKit frontend, Next.js runtime route, AG-UI protocol, and the .NET ChatClientAgent with tools.</p>
+
+    <div class="mermaid">
+flowchart TB
+    subgraph Frontend["Next.js Frontend (localhost:3333)"]
+        direction TB
+        CS["CopilotSidebar\n(Chat UI)"]
+        CK["CopilotKit Provider\n(agent=customer_agent)"]
+        RT["CopilotKit Runtime\n(/api/copilotkit)"]
+        HA["HttpAgent\n(@ag-ui/client)"]
+        CS --> CK
+        CK --> RT
+        RT --> HA
+    end
+
+    subgraph Backend[".NET 9 Backend (localhost:5000)"]
+        direction TB
+        AGUI["/agent\n(MapAGUI)"]
+        CCA["ChatClientAgent\n(Microsoft.Agents.AI)"]
+        ICC["IChatClient\n(OpenAI via GitHub Models)"]
+        T1["get_all_customers"]
+        T2["get_customer_by_id"]
+        T3["search_customer"]
+        T4["add_customer"]
+        T5["update_customer"]
+        T6["delete_customer"]
+        SVC["ICustomerService"]
+        AGUI --> CCA
+        CCA --> ICC
+        CCA --> T1 & T2 & T3 & T4 & T5 & T6
+        T1 & T2 & T3 & T4 & T5 & T6 --> SVC
+    end
+
+    subgraph LLM["GitHub Models"]
+        GPT["openai/gpt-4o-mini"]
+    end
+
+    HA -- "AG-UI Protocol\n(SSE stream)" --> AGUI
+    ICC -- "Chat Completion\nAPI calls" --> GPT
+
+    style Frontend fill:#eef2ff,stroke:#6366f1
+    style Backend fill:#f0fdf4,stroke:#22c55e
+    style LLM fill:#dbeafe,stroke:#3b82f6
+    </div>
+
+    <div class="legend">
+        <strong>Legend:</strong>
+        AG-UI = Agent-User Interaction protocol (SSE-based streaming) &bull;
+        CopilotKit Runtime bridges the React frontend to the .NET AG-UI agent &bull;
+        ChatClientAgent orchestrates tool calls via the LLM.
     </div>
 </div>
 
@@ -472,11 +530,13 @@ flowchart LR
     subgraph Pipeline["ASP.NET Core Middleware Pipeline"]
         direction LR
         A["HTTP Request"] --> B["HTTPS Redirection"]
-        B --> C["Routing"]
+        B --> B2["CORS"]
+        B2 --> C["Routing"]
         C --> D{"Route Match?"}
         D -- /health --> E["HealthEndpoint"]
         D -- /api/customers/* --> F["CustomersEndpoints"]
-        D -- /api/chat --> G["ChatEndpoint"]
+        D -- /api/chat --> G["ChatEndpoint (Legacy)"]
+        D -- /agent --> G2["AG-UI Agent Endpoint"]
     end
 
     subgraph DI["DI Container (Scoped)"]
@@ -485,7 +545,7 @@ flowchart LR
         H -. resolves to .-> I
     end
 
-    subgraph Agent["AI Agent (per-request)"]
+    subgraph LegacyAgent["Legacy AI Agent (per-request)"]
         J["ChatCompletionsClient"]
         K["CustomerToolDefinitions"]
         L["CustomerToolDispatcher"]
@@ -493,20 +553,39 @@ flowchart LR
         J -. dispatches .-> L
     end
 
+    subgraph AGUIAgent["AG-UI Agent"]
+        O["ChatClientAgent"]
+        P["6x AIFunctionFactory Tools"]
+        O -. uses .-> P
+    end
+
+    subgraph CopilotKit["CopilotKit Frontend (Next.js)"]
+        Q["CopilotSidebar"]
+        R["CopilotKit Runtime"]
+        S["HttpAgent"]
+        Q --> R --> S
+    end
+
     F -- injects --> H
     G -- injects --> H
     G -- creates --> J
     L -- wraps --> H
+    G2 -- serves --> O
+    P -- wraps --> H
     I -- reads --> M[("Static List&lt;Customer&gt;\n(In-Memory)")]
     J -- calls --> N["GitHub Models\n(openai/gpt-4o-mini)"]
+    O -- calls --> N
+    S -- "AG-UI SSE" --> G2
 
     subgraph Swagger["Swagger (Dev Only)"]
-        O["SwaggerGen"] --> P["SwaggerUI"]
+        V["SwaggerGen"] --> W["SwaggerUI"]
     end
 
     style Pipeline fill:#eef2ff,stroke:#6366f1
     style DI fill:#f0fdf4,stroke:#22c55e
-    style Agent fill:#fef3c7,stroke:#f59e0b
+    style LegacyAgent fill:#fef3c7,stroke:#f59e0b
+    style AGUIAgent fill:#e0f2fe,stroke:#0284c7
+    style CopilotKit fill:#fce7f3,stroke:#ec4899
     style Swagger fill:#fefce8,stroke:#eab308
     style M fill:#fee2e2,stroke:#ef4444
     style N fill:#dbeafe,stroke:#3b82f6
