@@ -313,7 +313,7 @@ graph TD
     Sidebar["CopilotSidebar<br/>AI Chat Interface"]
     Form["ExpenseForm<br/>Add New Expense"]
     Table["ExpenseTable<br/>Expense List + Delete"]
-    Stats["StatsCharts<br/>Pie + Bar Charts"]
+    Stats["StatsCharts<br/>Stat Cards + Category Bars"]
     Route["api/copilotkit/route.ts<br/>CopilotKit Runtime → AG-UI Bridge"]
 
     Layout --> Page
@@ -333,7 +333,7 @@ graph TD
     <div class="legend">
         <strong>Solid lines:</strong> React component hierarchy &bull;
         <strong>Dashed lines:</strong> HTTP requests to .NET backend &bull;
-        <strong>Components:</strong> ExpenseForm (input), ExpenseTable (list with delete), StatsCharts (Chart.js pie + bar)
+        <strong>Components:</strong> ExpenseForm (input), ExpenseTable (list with delete), StatsCharts (stat cards + CSS bars)
     </div>
 </div>
 
@@ -422,7 +422,7 @@ graph TD
 
     Tests --> TestFile["ExpenseServiceTests.cs<br/>23 unit tests"]
 
-    Web --> AppDir["src/app/"]
+    Web --> AppDir["app/"]
     AppDir --> LayoutTsx["layout.tsx"]
     AppDir --> PageTsx["page.tsx"]
     AppDir --> ApiRoute["api/copilotkit/route.ts"]

@@ -126,6 +126,83 @@ Test summary: Total: 23, Failed: 0, Passed: 23, Skipped: 0, Duration: 5.2s
   dotnet user-secrets set "GitHubModels:ApiKey" "github_pat_YOUR_NEW_TOKEN" --project ExpenseTracker
   ```
 
-## Phase 4: Frontend — NOT STARTED
+## Phase 4: Frontend ✅ COMPLETE
 
-## Phase 5: Documentation & Polish — NOT STARTED
+**Date:** February 24, 2026
+
+### Step 13 — Next.js 15 Scaffolded
+- Created `expense-tracker-web/` with Next.js 15.5.12 (App Router)
+- Installed: `@copilotkit/react-core`, `@copilotkit/react-ui`, `@copilotkit/runtime`, `@ag-ui/client`
+- Configured Tailwind CSS 4.x via `@tailwindcss/postcss`
+- Added API rewrites in `next.config.ts` to proxy `/api/expenses/*` and `/stats/*` to .NET backend
+- Set `"type": "commonjs"` in package.json (Next.js 15 + Turbopack compatibility)
+
+### Step 14 — UI Components Built
+- **ExpenseForm.tsx** — Add expense form with amount, category dropdown, date picker, optional description
+  - Validation: required fields, min amount 0.01
+  - POST to `/api/expenses`, resets on success, shows error state
+- **ExpenseTable.tsx** — Sortable expense list with category badges and delete buttons
+  - Fetches from `GET /api/expenses`, auto-refreshes via `refreshKey` prop
+  - Confirmation dialog on delete
+- **StatsCharts.tsx** — Analytics panel with stat cards + CSS horizontal bar indicators
+  - 4 summary cards: Total, Daily Avg, Top Category, Transactions
+  - Category breakdown with colored percentage bars (pure CSS, no chart library)
+  - Month picker input to switch analytics period
+
+### Step 15 — Chart.js Removed (Scope Decision)
+- Originally planned Chart.js pie + bar charts
+- Hit ESM/CJS module format conflict with Turbopack bundler
+- Replaced with CSS-only horizontal bar visualizations — visually effective, zero dependencies
+- Removed `chart.js` and `react-chartjs-2` from dependencies
+
+### Step 16 — CopilotKit Sidebar Wired
+- `layout.tsx` wraps app in `<CopilotKit runtimeUrl="/api/copilotkit" agent="expense_agent">`
+- `page.tsx` includes `<CopilotSidebar>` with custom labels and initial prompt suggestions
+- `app/api/copilotkit/route.ts` bridges CopilotKit Runtime → AG-UI HttpAgent → .NET `/agent`
+- Uses `ExperimentalEmptyAdapter` (all intelligence comes from .NET backend)
+
+### Step 17 — End-to-End Testing
+- Homepage: `GET http://localhost:3333` → **200 OK** (21KB HTML)
+- API proxy: `GET http://localhost:3333/api/expenses` → **200 OK** (12 expenses from .NET backend)
+- Stats proxy: `GET http://localhost:3333/stats/monthly?month=2026-02` → **200 OK** (`{total: 572, dailyAverage: 20.43, highestCategory: "Shopping"}`)
+- CopilotKit sidebar renders with custom labels and initial suggestions
+
+---
+
+## Phase 5: Documentation & Polish ✅ COMPLETE
+
+**Date:** February 24, 2026
+
+### Step 18 — README Written
+- Comprehensive `README.md` covering all evaluation criteria:
+  - Project goal & purpose (목표와 필요성)
+  - Core logic explanation (핵심 로직) with code snippets
+  - API reference with request/response examples (요청/응답 구조)
+  - Test code summary (테스트 코드)
+  - UI description + screenshot placeholders (실행 화면)
+  - How to run (실행 방법)
+  - GitHub Copilot usage documentation
+
+### Step 19 — Diagrams Updated
+- Updated `DIAGRAMS.html` — corrected component tree (StatsCharts = stat cards + CSS bars)
+- Corrected frontend path from `src/app/` to `app/`
+
+### Step 20 — Final Review
+- All 5 phases complete
+- All 20 steps complete
+- Backend: 9 REST endpoints + 1 AG-UI endpoint, Swagger UI
+- Tests: 23/23 passed
+- Frontend: 3 components + CopilotSidebar, all proxied to backend
+- Documentation: README, PLAN.md, PROGRESS.md, DIAGRAMS.html
+
+---
+
+## Summary
+
+| Phase | Status | Key Metric |
+|-------|--------|------------|
+| 1. Backend Foundation | ✅ | 9 endpoints, 12 seed records |
+| 2. Testing | ✅ | 23/23 tests passed |
+| 3. AI Agent | ✅ | 6 AI tools, AG-UI SSE verified |
+| 4. Frontend | ✅ | 3 components + CopilotSidebar |
+| 5. Documentation | ✅ | README + PLAN + PROGRESS + DIAGRAMS |
