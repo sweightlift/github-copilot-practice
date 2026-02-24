@@ -133,21 +133,25 @@ classDiagram
         +DeleteCustomer(int id) bool
     }
 
-    class CustomerPlugin {
-        &lt;&lt;Semantic Kernel Plugin&gt;&gt;
-        +get_all_customers() List~Customer~
-        +get_customer_by_id(int) Customer?
-        +search_customer(string) Customer?
-        +add_customer(string, string) Customer
-        +update_customer(int, string, string) Customer?
-        +delete_customer(int) bool
+    class CustomerToolDefinitions {
+        &lt;&lt;Static Tool Schema Provider&gt;&gt;
+        +GetAllTools() List~ChatCompletionsToolDefinition~
+        +get_all_customers FunctionDefinition
+        +get_customer_by_id FunctionDefinition
+        +search_customer FunctionDefinition
+        +add_customer FunctionDefinition
+        +update_customer FunctionDefinition
+        +delete_customer FunctionDefinition
     }
 
-    class ChatCompletionAgent {
-        &lt;&lt;Microsoft Agent Framework&gt;&gt;
-        +Name: CustomerAgent
-        +FunctionChoiceBehavior: Auto
-        +InvokeAsync(ChatHistory) responses
+    class CustomerToolDispatcher {
+        &lt;&lt;Static Tool Executor&gt;&gt;
+        +DispatchAsync(string name, string args, ICustomerService) string
+    }
+
+    class ChatCompletionsClient {
+        &lt;&lt;Azure.AI.Inference SDK&gt;&gt;
+        +CompleteAsync(ChatCompletionsOptions) ChatCompletions
     }
 
     class CustomersEndpoints {
@@ -172,9 +176,11 @@ classDiagram
 
     ICustomerService <|.. CustomerService : implements
     CustomerService --> Customer : manages
-    CustomerPlugin --> ICustomerService : wraps
-    ChatCompletionAgent --> CustomerPlugin : calls tools
-    ChatEndpoint --> ChatCompletionAgent : creates & invokes
+    CustomerToolDefinitions ..> ChatCompletionsClient : provides tool schemas
+    CustomerToolDispatcher --> ICustomerService : wraps
+    ChatCompletionsClient --> CustomerToolDispatcher : dispatches tool calls
+    ChatEndpoint --> ChatCompletionsClient : creates & invokes
+    ChatEndpoint --> CustomerToolDefinitions : gets tool schemas
     ChatEndpoint --> ChatRequest : receives
     ChatEndpoint --> ChatResponse : returns
     CustomersEndpoints --> ICustomerService : depends on
@@ -184,7 +190,7 @@ classDiagram
 
     note for Order "Defined but unused —\nno service or controller"
     note for CustomerService "Static in-memory data\n(3 seed customers)\nFull CRUD supported"
-    note for ChatCompletionAgent "GitHub Models endpoint\ngpt-4o-mini via\nmodels.inference.ai.azure.com"
+    note for ChatCompletionsClient "GitHub Models endpoint\nopenai/gpt-4o-mini via\nmodels.github.ai/inference"
     </div>
 
     <div class="legend">
@@ -418,10 +424,10 @@ sequenceDiagram
     participant User
     participant Kestrel as Kestrel Server
     participant Chat as /api/chat Endpoint
-    participant SK as Semantic Kernel
-    participant Agent as ChatCompletionAgent
+    participant Client as ChatCompletionsClient
     participant GH as GitHub Models (LLM)
-    participant Plugin as CustomerPlugin
+    participant Defs as CustomerToolDefinitions
+    participant Disp as CustomerToolDispatcher
     participant CS as CustomerService
     participant Data as Static List&lt;Customer&gt;
 
@@ -432,20 +438,22 @@ sequenceDiagram
         Chat-->>Kestrel: 400 "ApiKey not configured"
         Kestrel-->>User: HTTP 400
     else API key valid
-        Chat->>SK: Build Kernel + register CustomerPlugin
-        Chat->>Agent: Create ChatCompletionAgent
-        Chat->>Agent: InvokeAsync(chatHistory)
-        Agent->>GH: Send messages + tool definitions
-        GH-->>Agent: tool_call: get_all_customers()
-        Agent->>Plugin: get_all_customers()
-        Plugin->>CS: GetAllCustomers()
+        Chat->>Defs: GetAllTools()
+        Defs-->>Chat: List of ChatCompletionsToolDefinition
+        Chat->>Client: Create ChatCompletionsClient (AzureKeyCredential)
+        Chat->>Client: CompleteAsync(messages + tools)
+        Client->>GH: Send messages + tool definitions
+        GH-->>Client: FinishReason = ToolCalls, tool_call: get_all_customers()
+        Chat->>Disp: DispatchAsync("get_all_customers", args, service)
+        Disp->>CS: GetAllCustomers()
         CS->>Data: return all
         Data-->>CS: List of customers
-        CS-->>Plugin: List&lt;Customer&gt;
-        Plugin-->>Agent: tool result (JSON)
-        Agent->>GH: Send tool result
-        GH-->>Agent: "Here are all the customers..."
-        Agent-->>Chat: ChatMessageContent
+        CS-->>Disp: List&lt;Customer&gt;
+        Disp-->>Chat: tool result (JSON string)
+        Chat->>Client: CompleteAsync(messages + tool result)
+        Client->>GH: Send tool result
+        GH-->>Client: FinishReason = Stop, "Here are all the customers..."
+        Client-->>Chat: ChatCompletions
         Chat-->>Kestrel: 200 OK + ChatResponse
         Kestrel-->>User: {"reply": "...", "timestamp": "..."}
     end
@@ -478,11 +486,11 @@ flowchart LR
     end
 
     subgraph Agent["AI Agent (per-request)"]
-        J["Semantic Kernel"]
-        K["ChatCompletionAgent"]
-        L["CustomerPlugin"]
-        J --> K
-        K --> L
+        J["ChatCompletionsClient"]
+        K["CustomerToolDefinitions"]
+        L["CustomerToolDispatcher"]
+        K -. provides schemas .-> J
+        J -. dispatches .-> L
     end
 
     F -- injects --> H
@@ -490,7 +498,7 @@ flowchart LR
     G -- creates --> J
     L -- wraps --> H
     I -- reads --> M[("Static List&lt;Customer&gt;\n(In-Memory)")]
-    K -- calls --> N["GitHub Models\n(gpt-4o-mini)"]
+    J -- calls --> N["GitHub Models\n(openai/gpt-4o-mini)"]
 
     subgraph Swagger["Swagger (Dev Only)"]
         O["SwaggerGen"] --> P["SwaggerUI"]

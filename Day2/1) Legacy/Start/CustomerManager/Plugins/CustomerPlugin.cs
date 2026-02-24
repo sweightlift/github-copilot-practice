@@ -1,69 +1,86 @@
-using System.ComponentModel;
+using Azure.AI.Inference;
 using CustomerManager.Models;
 using CustomerManager.Services;
-using Microsoft.SemanticKernel;
+using System.Text.Json;
 
 namespace CustomerManager.Plugins;
 
 /// <summary>
-/// Semantic Kernel plugin that exposes CustomerService operations as agent tools.
-/// The ChatCompletionAgent calls these functions automatically based on user intent.
+/// Provides Azure.AI.Inference tool definitions and a dispatcher for customer operations.
+/// The ChatCompletionsClient uses these tools for function-calling in the /api/chat endpoint.
 /// </summary>
-public class CustomerPlugin
+public static class CustomerToolDefinitions
 {
-    private readonly ICustomerService _customerService;
+    public static List<ChatCompletionsToolDefinition> GetTools() =>
+    [
+        MakeTool("get_all_customers", "Get the full list of all customers",
+            """{"type":"object","properties":{},"required":[]}"""),
 
-    public CustomerPlugin(ICustomerService customerService)
-    {
-        _customerService = customerService;
-    }
+        MakeTool("get_customer_by_id", "Get a single customer by their ID",
+            """{"type":"object","properties":{"id":{"type":"integer","description":"The customer ID"}},"required":["id"]}"""),
 
-    [KernelFunction("get_all_customers")]
-    [Description("Get the full list of all customers")]
-    public List<Customer> GetAllCustomers()
-    {
-        return _customerService.GetAllCustomers();
-    }
+        MakeTool("search_customer", "Search for a customer by name (partial, case-insensitive match)",
+            """{"type":"object","properties":{"name":{"type":"string","description":"The name or partial name to search for"}},"required":["name"]}"""),
 
-    [KernelFunction("get_customer_by_id")]
-    [Description("Get a single customer by their ID")]
-    public Customer? GetCustomerById([Description("The customer ID (integer)")] int id)
-    {
-        return _customerService.GetCustomer(id);
-    }
+        MakeTool("add_customer", "Add a new customer with the given name and email",
+            """{"type":"object","properties":{"name":{"type":"string","description":"Customer name"},"email":{"type":"string","description":"Customer email address"}},"required":["name","email"]}"""),
 
-    [KernelFunction("search_customer")]
-    [Description("Search for a customer by name (partial, case-insensitive match)")]
-    public Customer? SearchCustomer([Description("The name or partial name to search for")] string name)
-    {
-        return _customerService.SearchCustomer(name);
-    }
+        MakeTool("update_customer", "Update an existing customer's name and/or email by their ID",
+            """{"type":"object","properties":{"id":{"type":"integer","description":"Customer ID to update"},"name":{"type":"string","description":"New name"},"email":{"type":"string","description":"New email"}},"required":["id","name","email"]}"""),
 
-    [KernelFunction("add_customer")]
-    [Description("Add a new customer with the given name and email")]
-    public Customer AddCustomer(
-        [Description("Customer name")] string name,
-        [Description("Customer email address")] string email)
-    {
-        var customer = new Customer { Name = name, Email = email };
-        return _customerService.AddCustomer(customer);
-    }
+        MakeTool("delete_customer", "Delete a customer by their ID",
+            """{"type":"object","properties":{"id":{"type":"integer","description":"Customer ID to delete"}},"required":["id"]}"""),
+    ];
 
-    [KernelFunction("update_customer")]
-    [Description("Update an existing customer's name and/or email by their ID")]
-    public Customer? UpdateCustomer(
-        [Description("The customer ID to update")] int id,
-        [Description("New customer name")] string name,
-        [Description("New customer email address")] string email)
-    {
-        var customer = new Customer { Name = name, Email = email };
-        return _customerService.UpdateCustomer(id, customer);
-    }
+    private static ChatCompletionsToolDefinition MakeTool(string name, string description, string parametersJson) =>
+        new(new FunctionDefinition(name)
+        {
+            Description = description,
+            Parameters = BinaryData.FromString(parametersJson)
+        });
+}
 
-    [KernelFunction("delete_customer")]
-    [Description("Delete a customer by their ID")]
-    public bool DeleteCustomer([Description("The customer ID to delete")] int id)
+/// <summary>
+/// Dispatches tool calls from the AI model to the appropriate ICustomerService methods.
+/// </summary>
+public static class CustomerToolDispatcher
+{
+    public static string Execute(string functionName, string arguments, ICustomerService svc)
     {
-        return _customerService.DeleteCustomer(id);
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(arguments) ? "{}" : arguments);
+        var args = doc.RootElement;
+
+        return functionName switch
+        {
+            "get_all_customers" =>
+                JsonSerializer.Serialize(svc.GetAllCustomers()),
+
+            "get_customer_by_id" =>
+                JsonSerializer.Serialize(svc.GetCustomer(args.GetProperty("id").GetInt32())),
+
+            "search_customer" =>
+                JsonSerializer.Serialize(svc.SearchCustomer(args.GetProperty("name").GetString()!)),
+
+            "add_customer" =>
+                JsonSerializer.Serialize(svc.AddCustomer(new Customer
+                {
+                    Name = args.GetProperty("name").GetString(),
+                    Email = args.GetProperty("email").GetString()
+                })),
+
+            "update_customer" =>
+                JsonSerializer.Serialize(svc.UpdateCustomer(
+                    args.GetProperty("id").GetInt32(),
+                    new Customer
+                    {
+                        Name = args.GetProperty("name").GetString(),
+                        Email = args.GetProperty("email").GetString()
+                    })),
+
+            "delete_customer" =>
+                JsonSerializer.Serialize(svc.DeleteCustomer(args.GetProperty("id").GetInt32())),
+
+            _ => JsonSerializer.Serialize(new { error = $"Unknown tool: {functionName}" })
+        };
     }
 }

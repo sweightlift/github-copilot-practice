@@ -152,6 +152,42 @@ POST /api/chat { "message": "Update customer 4 ..." }       → ✅ updated name
 POST /api/chat { "message": "Delete customer with ID 4" }   → ✅ deleted
 ```
 
+### Step 13: Migrate from Semantic Kernel to Azure.AI.Inference SDK ✅
+Replaced the Microsoft Semantic Kernel Agent Framework with the **Azure.AI.Inference** SDK for direct, lightweight LLM integration.
+
+#### What Changed
+| Item | Before | After |
+|------|--------|-------|
+| NuGet Packages | `Microsoft.SemanticKernel` 1.72.0 + `Microsoft.SemanticKernel.Agents.Core` 1.72.0 | `Azure.AI.Inference` 1.0.0-beta.5 |
+| Endpoint | `https://models.inference.ai.azure.com` | `https://models.github.ai/inference` |
+| Model Format | `gpt-4o-mini` | `openai/gpt-4o-mini` |
+| Client | `ChatCompletionAgent` (Semantic Kernel) | `ChatCompletionsClient` + `AzureKeyCredential` |
+| Tool Definitions | `[KernelFunction]` attributes in `CustomerPlugin` | `ChatCompletionsToolDefinition` + `FunctionDefinition` in `CustomerToolDefinitions` |
+| Tool Dispatch | Automatic via `FunctionChoiceBehavior.Auto()` | Manual loop: check `CompletionsFinishReason.ToolCalls` → execute → send results → loop |
+| Plugin File | `Plugins/CustomerPlugin.cs` (single class) | `Plugins/CustomerPlugin.cs` refactored into `CustomerToolDefinitions` (static schema) + `CustomerToolDispatcher` (static executor) |
+
+#### Architecture
+1. User sends `POST /api/chat` with `{ "message": "..." }`.
+2. A `ChatCompletionsClient` is created with `AzureKeyCredential` pointing to `https://models.github.ai/inference`.
+3. `CustomerToolDefinitions` provides tool schemas (`ChatCompletionsToolDefinition` + `FunctionDefinition`) for all 6 CRUD operations.
+4. The LLM response is checked for `CompletionsFinishReason.ToolCalls`.
+5. If tool calls are present, `CustomerToolDispatcher` executes them against `ICustomerService` and sends results back.
+6. The loop continues until the LLM returns a final text response.
+
+#### What Was Kept
+- Retry logic (3 attempts + exponential backoff)
+- SSL bypass (`SocketsHttpHandler` with custom certificate validation)
+- All 6 agent tools (get_all, get_by_id, search, add, update, delete)
+
+#### Test Results (all 5 chat scenarios pass)
+```
+POST /api/chat { "message": "List all customers" }             → ✅ returned 3 customers
+POST /api/chat { "message": "Search for Jane" }                 → ✅ found Jane Smith
+POST /api/chat { "message": "Add ... TestUser ..." }            → ✅ created new customer
+POST /api/chat { "message": "Delete customer with ID 4" }       → ✅ deleted
+POST /api/chat { "message": "고객 목록을 보여주세요" }            → ✅ Korean prompt handled
+```
+
 ### Notes / Issues Encountered
 - `dotnet` was not on PATH initially — used full path `C:\Program Files\dotnet\dotnet.exe` to verify, then PATH resolved after terminal restart.
 - Running without `--environment Development` starts in Production mode, which disables Swagger middleware.

@@ -1,10 +1,9 @@
+using Azure;
+using Azure.AI.Inference;
 using CustomerManager.Models;
 using CustomerManager.Plugins;
 using CustomerManager.Services;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,18 +90,22 @@ customers.MapDelete("/{id:int}", (int id, ICustomerService svc) =>
     return svc.DeleteCustomer(id) ? Results.NoContent() : Results.NotFound();
 });
 
-// ── AI Agent Chat (Microsoft Agent Framework + GitHub Models) ───
+// ── AI Agent Chat (Azure.AI.Inference + GitHub Models) ──────────
 app.MapPost("/api/chat", async (ChatRequest request, ICustomerService svc, IConfiguration config) =>
 {
-    var apiKey = config["GitHubModels:ApiKey"];
+    var apiKey = config["GitHubModels:ApiKey"]
+              ?? Environment.GetEnvironmentVariable("GITHUB_TOKEN");
     if (string.IsNullOrWhiteSpace(apiKey))
-        return Results.BadRequest("GitHubModels:ApiKey is not configured in appsettings.json");
+        return Results.BadRequest("GitHubModels:ApiKey or GITHUB_TOKEN environment variable is not configured");
 
     if (string.IsNullOrWhiteSpace(request.Message))
         return Results.BadRequest("Message is required");
 
-    // Build Semantic Kernel with GitHub Models (OpenAI-compatible endpoint)
-    // Use SocketsHttpHandler to handle SSL issues while keeping HTTP/2 compatible
+    var endpoint = new Uri(config["GitHubModels:Endpoint"] ?? "https://models.github.ai/inference");
+    var credential = new AzureKeyCredential(apiKey);
+    var model = config["GitHubModels:ModelId"] ?? "openai/gpt-4o-mini";
+
+    // Use SocketsHttpHandler to handle SSL issues in corporate environments
     var handler = new SocketsHttpHandler
     {
         SslOptions = new System.Net.Security.SslClientAuthenticationOptions
@@ -110,75 +113,84 @@ app.MapPost("/api/chat", async (ChatRequest request, ICustomerService svc, IConf
             RemoteCertificateValidationCallback = (_, _, _, _) => true
         }
     };
-    var httpClient = new HttpClient(handler)
+    var httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
+    var clientOptions = new AzureAIInferenceClientOptions();
+    clientOptions.Transport = new Azure.Core.Pipeline.HttpClientTransport(httpClient);
+
+    var client = new ChatCompletionsClient(endpoint, credential, clientOptions);
+
+    // Define agent tools from CustomerToolDefinitions
+    var tools = CustomerToolDefinitions.GetTools();
+
+    // Build messages with system prompt
+    var messages = new List<ChatRequestMessage>
     {
-        Timeout = TimeSpan.FromSeconds(60)
-    };
-
-    var kernelBuilder = Kernel.CreateBuilder();
-    kernelBuilder.AddOpenAIChatCompletion(
-        modelId: config["GitHubModels:ModelId"] ?? "gpt-4o-mini",
-        apiKey: apiKey,
-        endpoint: new Uri("https://models.inference.ai.azure.com"),
-        httpClient: httpClient);
-
-    // Register the CustomerPlugin so the agent can call customer tools
-    kernelBuilder.Plugins.AddFromObject(new CustomerPlugin(svc), "CustomerManager");
-
-    var kernel = kernelBuilder.Build();
-
-    // Create a ChatCompletionAgent with tool-calling enabled
-    ChatCompletionAgent agent = new()
-    {
-        Name = "CustomerAgent",
-        Instructions = """
+        new ChatRequestSystemMessage("""
             You are a helpful customer management assistant.
             You can look up, search, add, update, and delete customers using the available tools.
             Always confirm actions with clear details.
             When listing customers, format the information in a clear, readable way.
             If a user request is ambiguous, ask for clarification.
             Respond in the same language as the user's message.
-            """,
-        Kernel = kernel,
-        Arguments = new KernelArguments(
-            new OpenAIPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-            })
+            """)
     };
 
-    // Build chat history from the request
-    ChatHistory chatHistory = [];
+    // Add conversation history
     if (request.History != null)
     {
         foreach (var msg in request.History)
         {
-            if (msg.Role?.ToLower() == "user")
-                chatHistory.AddUserMessage(msg.Content ?? "");
-            else if (msg.Role?.ToLower() == "assistant")
-                chatHistory.AddAssistantMessage(msg.Content ?? "");
+            if (msg.Role?.Equals("user", StringComparison.OrdinalIgnoreCase) == true)
+                messages.Add(new ChatRequestUserMessage(msg.Content ?? ""));
+            else if (msg.Role?.Equals("assistant", StringComparison.OrdinalIgnoreCase) == true)
+                messages.Add(new ChatRequestAssistantMessage(msg.Content ?? ""));
         }
     }
-    chatHistory.AddUserMessage(request.Message);
+    messages.Add(new ChatRequestUserMessage(request.Message));
 
-    // Invoke the agent with retry logic for transient network failures
+    // Tool-calling loop with retry logic
     const int maxRetries = 3;
+    const int maxToolRounds = 10;
+
     for (int attempt = 1; attempt <= maxRetries; attempt++)
     {
         try
         {
-            var responses = new List<string>();
-            await foreach (ChatMessageContent response in agent.InvokeAsync(chatHistory))
+            for (int round = 0; round < maxToolRounds; round++)
             {
-                if (!string.IsNullOrWhiteSpace(response.Content))
-                    responses.Add(response.Content);
+                var options = new ChatCompletionsOptions(messages)
+                {
+                    Model = model,
+                };
+                foreach (var tool in tools)
+                    options.Tools.Add(tool);
+
+                var response = await client.CompleteAsync(options);
+                var result = response.Value;
+
+                if (result.FinishReason == CompletionsFinishReason.ToolCalls)
+                {
+                    // Add assistant message with tool calls back to conversation
+                    messages.Add(new ChatRequestAssistantMessage(result));
+
+                    // Execute each tool call and add results
+                    foreach (var toolCall in result.ToolCalls)
+                    {
+                        var toolResult = CustomerToolDispatcher.Execute(toolCall.Function.Name, toolCall.Function.Arguments, svc);
+                        messages.Add(new ChatRequestToolMessage(toolCallId: toolCall.Id, content: toolResult));
+                    }
+                    continue; // next round
+                }
+
+                // Final response
+                return Results.Ok(new ChatResponse
+                {
+                    Reply = result.Content ?? "",
+                    Timestamp = DateTime.UtcNow
+                });
             }
 
-            return Results.Ok(new ChatResponse
-            {
-                Reply = string.Join("\n", responses),
-                Timestamp = DateTime.UtcNow
-            });
+            return Results.Json(new { error = "Too many tool call rounds" }, statusCode: 500);
         }
         catch (Exception ex) when (attempt < maxRetries && IsTransientError(ex))
         {

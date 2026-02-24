@@ -9,9 +9,9 @@
 | **Architecture** | Minimal API (single-file endpoints in Program.cs) |
 | **Data Store** | In-memory static list (no real database) |
 | **API Docs** | Swagger / Swashbuckle (dev only) |
-| **AI Agent** | Microsoft Agent Framework (Semantic Kernel) + GitHub Models |
+| **AI Agent** | Azure.AI.Inference SDK + GitHub Models |
 
-A lightweight legacy-style REST API that manages customer data, enhanced with an AI-powered conversational agent that can execute CRUD operations via natural language. Intended as a starting point for a refactoring / modernization exercise.
+A lightweight legacy-style REST API that manages customer data, enhanced with an AI-powered conversational agent (via Azure.AI.Inference SDK) that can execute CRUD operations via natural language. Intended as a starting point for a refactoring / modernization exercise.
 
 ---
 
@@ -20,12 +20,12 @@ A lightweight legacy-style REST API that manages customer data, enhanced with an
 ```
 CustomerManager/
 ├── Program.cs                      # App entry point, DI config, Minimal API endpoints & AI Agent chat
-├── CustomerManager.csproj          # Project file (.NET 8, Swashbuckle, Semantic Kernel)
+├── CustomerManager.csproj          # Project file (.NET 8, Swashbuckle, Azure.AI.Inference)
 ├── appsettings.json                # Config (connection string, API key, GitHub Models settings)
 ├── Models/
 │   └── DomainModels.cs             # Customer, Order, HealthResponse, ChatMessage, ChatRequest, ChatResponse
 ├── Plugins/
-│   └── CustomerPlugin.cs           # Semantic Kernel plugin — exposes CRUD as agent tools
+│   └── CustomerPlugin.cs           # CustomerToolDefinitions (tool schemas) + CustomerToolDispatcher (executor)
 └── Services/
     └── CustomerService.cs          # Business logic + in-memory data
 ```
@@ -42,9 +42,10 @@ CustomerManager/
 - Swagger UI is only exposed in the **Development** environment.
 - **All endpoints defined inline as Minimal API** using `MapGet`, `MapPost`, `MapPut`, `MapDelete`.
 - Customer endpoints grouped under `app.MapGroup("/api/customers")`.
-- **AI Agent Chat endpoint** (`POST /api/chat`) — creates a Semantic Kernel `ChatCompletionAgent` connected to GitHub Models, with `CustomerPlugin` tools for automatic function calling.
+- **AI Agent Chat endpoint** (`POST /api/chat`) — creates an Azure.AI.Inference `ChatCompletionsClient` connected to GitHub Models (`https://models.github.ai/inference`), with tool definitions for manual function calling.
 - Chat endpoint includes **retry logic** (up to 3 attempts with exponential backoff) for transient network failures.
 - Uses `SocketsHttpHandler` with custom SSL validation to handle corporate proxy/certificate issues.
+- Tool-calling loop: checks `CompletionsFinishReason.ToolCalls` → dispatches via `CustomerToolDispatcher` → sends results back → repeats until final text response.
 
 ### 2. Models (`DomainModels.cs`)
 
@@ -59,9 +60,12 @@ CustomerManager/
 
 ### 3. Plugins (`CustomerPlugin.cs`) — AI Agent Tools
 
-- Wraps `ICustomerService` methods as **Semantic Kernel functions** via `[KernelFunction]` + `[Description]` attributes.
-- Registered as a named plugin (`"CustomerManager"`) on the kernel.
-- The `ChatCompletionAgent` invokes these tools automatically based on user intent (`FunctionChoiceBehavior.Auto()`).
+Refactored into two static classes:
+
+- **`CustomerToolDefinitions`** — Provides `ChatCompletionsToolDefinition` + `FunctionDefinition` schemas for each tool. These are passed to the `ChatCompletionsClient` so the LLM knows which functions are available.
+- **`CustomerToolDispatcher`** — Static executor that maps tool-call names to `ICustomerService` methods and returns JSON results.
+
+The tool-calling flow is manual: the chat endpoint checks `CompletionsFinishReason.ToolCalls`, dispatches each call via `CustomerToolDispatcher`, appends results as `ChatRequestToolMessage`, and loops until the LLM returns a final text response.
 
 | Tool Name | Description |
 |-----------|-------------|
@@ -109,9 +113,9 @@ CustomerManager/
 | `/api/chat` | POST | Natural language chat with AI agent — auto-calls customer tools |
 
 - Request body: `{ "message": "...", "history": [{ "role": "user|assistant", "content": "..." }] }`
-- Uses **GitHub Models** (`gpt-4o-mini` via `https://models.inference.ai.azure.com`).
-- Agent is powered by **Microsoft Semantic Kernel Agent Framework** with `ChatCompletionAgent`.
-- Tool calling is automatic: the LLM decides which `CustomerPlugin` function to invoke.
+- Uses **GitHub Models** (`openai/gpt-4o-mini` via `https://models.github.ai/inference`).
+- Agent is powered by **Azure.AI.Inference SDK** with `ChatCompletionsClient` + `AzureKeyCredential`.
+- Tool calling is manual: the LLM returns `CompletionsFinishReason.ToolCalls`, the endpoint dispatches via `CustomerToolDispatcher`, and loops until final text.
 - Includes **retry with backoff** (3 attempts) for transient `HttpRequestException` / `HttpIOException` errors.
 - Returns structured `502` JSON error (`{ error, detail, attempt }`) when all retries are exhausted.
 
@@ -130,7 +134,7 @@ CustomerManager/
 | `ConnectionStrings:LocalDb` | LocalDB / `LegacyDb` | **Not used** — data is in-memory |
 | `ApiSettings:ApiVersion` | `1.0.0` | Present but not referenced in code |
 | `GitHubModels:ApiKey` | *(user-provided)* | GitHub Personal Access Token with `models:read` permission |
-| `GitHubModels:ModelId` | `gpt-4o-mini` (default) | Optional — override the LLM model for the AI agent |
+| `GitHubModels:ModelId` | `openai/gpt-4o-mini` (default) | Optional — override the LLM model for the AI agent |
 
 ---
 
@@ -139,8 +143,7 @@ CustomerManager/
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `Swashbuckle.AspNetCore` | 6.4.0 | Swagger / OpenAPI generation |
-| `Microsoft.SemanticKernel` | 1.72.0 | Semantic Kernel core — AI orchestration, plugins, function calling |
-| `Microsoft.SemanticKernel.Agents.Core` | 1.72.0 | Agent Framework — `ChatCompletionAgent` with tool use |
+| `Azure.AI.Inference` | 1.0.0-beta.5 | Azure AI Inference SDK — `ChatCompletionsClient`, tool definitions, manual tool-calling loop |
 
 No Entity Framework, no authentication, no logging framework beyond the built-in defaults.
 
@@ -194,7 +197,7 @@ POST    /api/chat                       → ChatResponse { reply, timestamp } | 
 4. **Build out Orders** — Create `IOrderService` + `OrdersController` to use the `Order` model.
 5. **Add logging** — Inject `ILogger<T>` into controllers and services.
 6. **Add tests** — Create an xUnit/NUnit project with unit and integration tests.
-7. ~~**Agent Tool conversion** — Follow the TODO in `CustomersController` to convert `GetCustomer` into an Agent Tool (Step 5 of the exercise).~~ ✅ Done — All CRUD exposed via `CustomerPlugin` + `ChatCompletionAgent`.
+7. ~~**Agent Tool conversion** — Follow the TODO in `CustomersController` to convert `GetCustomer` into an Agent Tool (Step 5 of the exercise).~~ ✅ Done — All CRUD exposed via `CustomerToolDefinitions` + `CustomerToolDispatcher` + `ChatCompletionsClient`.
 8. **Security** — Add authentication/authorization middleware.
 9. **Streaming chat** — Add SSE/streaming support for the chat endpoint.
 10. **Persistent chat history** — Store conversation history in a database.
