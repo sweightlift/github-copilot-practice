@@ -71,6 +71,61 @@ Added 4 new endpoints to `CustomersController` and corresponding service methods
 - Rebuilt and tested all 7 endpoints — all pass ✅.
 - Updated PROJECT_ANALYSIS.md, DIAGRAMS.html, and INDEX.html.
 
+### Step 10: Microsoft Agent Framework + GitHub Models ✅
+Integrated an AI-powered chat agent using **Microsoft Semantic Kernel Agent Framework** with **GitHub Models** as the LLM backend.
+
+#### What Was Added
+| Item | Detail |
+|------|--------|
+| NuGet Package | `Microsoft.SemanticKernel` 1.72.0 |
+| NuGet Package | `Microsoft.SemanticKernel.Agents.Core` 1.72.0 |
+| New File | `Plugins/CustomerPlugin.cs` — 6 `[KernelFunction]` tools wrapping `ICustomerService` |
+| New Models | `ChatMessage`, `ChatRequest`, `ChatResponse` in `DomainModels.cs` |
+| New Endpoint | `POST /api/chat` — natural language chat with AI agent |
+| Config | `GitHubModels:ApiKey` and `GitHubModels:ModelId` in `appsettings.json` |
+
+#### How It Works
+1. User sends `POST /api/chat` with `{ "message": "Show me all customers" }`.
+2. A `Kernel` is built with `AddOpenAIChatCompletion()` pointing to `https://models.inference.ai.azure.com` (GitHub Models).
+3. `CustomerPlugin` is registered on the kernel — exposes CRUD as callable tools.
+4. A `ChatCompletionAgent` is created with `FunctionChoiceBehavior.Auto()` — the LLM automatically decides which tools to call.
+5. The agent processes the message, may invoke one or more tools, and returns a formatted reply.
+
+#### Agent Tools (CustomerPlugin)
+| Tool | Description |
+|------|-------------|
+| `get_all_customers` | Returns full customer list |
+| `get_customer_by_id` | Lookup by ID |
+| `search_customer` | Partial name search |
+| `add_customer` | Create new customer (name + email) |
+| `update_customer` | Update name/email by ID |
+| `delete_customer` | Remove customer by ID |
+
+#### Test Results
+```
+POST /api/chat { "message": "Show me all customers" }
+→ ✅ Agent called get_all_customers tool, returned formatted list of 3 customers
+
+POST /api/chat { "message": "Search for a customer named Jane" }
+→ ✅ Agent called search_customer("Jane"), returned Jane Smith details
+
+POST /api/chat { "message": "Add a new customer named Alice Johnson with email alice@company.com" }
+→ ✅ Agent called add_customer("Alice Johnson", "alice@company.com"), returned new customer ID 4
+
+POST /api/chat { "message": "Delete the customer with ID 4" }
+→ ✅ Agent called delete_customer(4), confirmed deletion
+```
+
+#### Issues Encountered & Fixed
+- **Build error:** `.WithOpenApi()` extension requires `Microsoft.AspNetCore.OpenApi` package — replaced with `.WithDescription()`.
+- **SSL error:** Corporate proxy caused certificate validation failure — added `DangerousAcceptAnyServerCertificateValidator` on HttpClient.
+
+### Step 11: Update All Documentation ✅
+- Updated PROJECT_ANALYSIS.md with agent architecture, new packages, new endpoint, new models, and plugin tools.
+- Updated PROGRESS.md with Step 10 details and test results.
+- Updated DIAGRAMS.html with agent architecture diagram and updated class diagram.
+- Updated INDEX.html with chat endpoint card and AI agent interactive section.
+
 ### Notes / Issues Encountered
 - `dotnet` was not on PATH initially — used full path `C:\Program Files\dotnet\dotnet.exe` to verify, then PATH resolved after terminal restart.
 - Running without `--environment Development` starts in Production mode, which disables Swagger middleware.

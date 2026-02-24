@@ -24,3 +24,22 @@ public class HealthResponse
     public string? Message { get; set; }
     public DateTime Timestamp { get; set; }
 }
+
+// ── Chat models for AI Agent endpoint ──────────────────
+public class ChatMessage
+{
+    public string? Role { get; set; }
+    public string? Content { get; set; }
+}
+
+public class ChatRequest
+{
+    public string? Message { get; set; }
+    public List<ChatMessage>? History { get; set; }
+}
+
+public class ChatResponse
+{
+    public string? Reply { get; set; }
+    public DateTime Timestamp { get; set; }
+}

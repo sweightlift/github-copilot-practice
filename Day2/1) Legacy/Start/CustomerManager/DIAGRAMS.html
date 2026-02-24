@@ -64,7 +64,7 @@
 <body>
 
 <h1>CustomerManager — Architecture Diagrams</h1>
-<p class="subtitle">Auto-generated from project analysis &bull; .NET 8 Web API</p>
+<p class="subtitle">Auto-generated from project analysis &bull; .NET 8 Web API + AI Agent</p>
 
 <!-- ============================================================ -->
 <!-- CLASS DIAGRAM                                                  -->
@@ -98,6 +98,21 @@ classDiagram
         +DateTime Timestamp
     }
 
+    class ChatMessage {
+        +string? Role
+        +string? Content
+    }
+
+    class ChatRequest {
+        +string Message
+        +List~ChatMessage~? History
+    }
+
+    class ChatResponse {
+        +string Reply
+        +DateTime Timestamp
+    }
+
     class ICustomerService {
         &lt;&lt;interface&gt;&gt;
         +GetCustomer(int id) Customer?
@@ -118,7 +133,24 @@ classDiagram
         +DeleteCustomer(int id) bool
     }
 
-    class CustomersController {
+    class CustomerPlugin {
+        &lt;&lt;Semantic Kernel Plugin&gt;&gt;
+        +get_all_customers() List~Customer~
+        +get_customer_by_id(int) Customer?
+        +search_customer(string) Customer?
+        +add_customer(string, string) Customer
+        +update_customer(int, string, string) Customer?
+        +delete_customer(int) bool
+    }
+
+    class ChatCompletionAgent {
+        &lt;&lt;Microsoft Agent Framework&gt;&gt;
+        +Name: CustomerAgent
+        +FunctionChoiceBehavior: Auto
+        +InvokeAsync(ChatHistory) responses
+    }
+
+    class CustomersEndpoints {
         &lt;&lt;Minimal API&gt;&gt;
         MapGet / GetAll
         MapGet /search SearchCustomer
@@ -128,6 +160,11 @@ classDiagram
         MapDelete /id DeleteCustomer
     }
 
+    class ChatEndpoint {
+        &lt;&lt;Minimal API&gt;&gt;
+        MapPost /api/chat
+    }
+
     class HealthEndpoint {
         &lt;&lt;Minimal API&gt;&gt;
         MapGet /health
@@ -135,13 +172,19 @@ classDiagram
 
     ICustomerService <|.. CustomerService : implements
     CustomerService --> Customer : manages
-    CustomersController --> ICustomerService : depends on
-    CustomersController --> Customer : returns
+    CustomerPlugin --> ICustomerService : wraps
+    ChatCompletionAgent --> CustomerPlugin : calls tools
+    ChatEndpoint --> ChatCompletionAgent : creates & invokes
+    ChatEndpoint --> ChatRequest : receives
+    ChatEndpoint --> ChatResponse : returns
+    CustomersEndpoints --> ICustomerService : depends on
+    CustomersEndpoints --> Customer : returns
     HealthEndpoint --> HealthResponse : returns
     Order --> Customer : CustomerId references
 
     note for Order "Defined but unused —\nno service or controller"
     note for CustomerService "Static in-memory data\n(3 seed customers)\nFull CRUD supported"
+    note for ChatCompletionAgent "GitHub Models endpoint\ngpt-4o-mini via\nmodels.inference.ai.azure.com"
     </div>
 
     <div class="legend">
@@ -364,10 +407,56 @@ sequenceDiagram
 </div>
 
 <!-- ============================================================ -->
+<!-- SEQUENCE DIAGRAM — AI Agent Chat                               -->
+<!-- ============================================================ -->
+<div class="diagram-section">
+    <h2>8. Sequence Diagram — POST /api/chat (AI Agent)</h2>
+    <p>Natural language chat with the AI agent. The LLM decides which tools to call.</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    participant User
+    participant Kestrel as Kestrel Server
+    participant Chat as /api/chat Endpoint
+    participant SK as Semantic Kernel
+    participant Agent as ChatCompletionAgent
+    participant GH as GitHub Models (LLM)
+    participant Plugin as CustomerPlugin
+    participant CS as CustomerService
+    participant Data as Static List&lt;Customer&gt;
+
+    User->>Kestrel: POST /api/chat {"message": "Show all customers"}
+    Kestrel->>Chat: ChatRequest
+
+    alt API key missing
+        Chat-->>Kestrel: 400 "ApiKey not configured"
+        Kestrel-->>User: HTTP 400
+    else API key valid
+        Chat->>SK: Build Kernel + register CustomerPlugin
+        Chat->>Agent: Create ChatCompletionAgent
+        Chat->>Agent: InvokeAsync(chatHistory)
+        Agent->>GH: Send messages + tool definitions
+        GH-->>Agent: tool_call: get_all_customers()
+        Agent->>Plugin: get_all_customers()
+        Plugin->>CS: GetAllCustomers()
+        CS->>Data: return all
+        Data-->>CS: List of customers
+        CS-->>Plugin: List&lt;Customer&gt;
+        Plugin-->>Agent: tool result (JSON)
+        Agent->>GH: Send tool result
+        GH-->>Agent: "Here are all the customers..."
+        Agent-->>Chat: ChatMessageContent
+        Chat-->>Kestrel: 200 OK + ChatResponse
+        Kestrel-->>User: {"reply": "...", "timestamp": "..."}
+    end
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- COMPONENT / DEPENDENCY FLOW                                    -->
 <!-- ============================================================ -->
 <div class="diagram-section">
-    <h2>8. Dependency Injection &amp; Request Pipeline</h2>
+    <h2>9. Dependency Injection &amp; Request Pipeline</h2>
     <p>High-level view of the middleware pipeline and DI container.</p>
 
     <div class="mermaid">
@@ -377,27 +466,42 @@ flowchart LR
         A["HTTP Request"] --> B["HTTPS Redirection"]
         B --> C["Routing"]
         C --> D{"Route Match?"}
-        D -- /health --> E["HealthController"]
-        D -- /api/customers/* --> F["CustomersController"]
+        D -- /health --> E["HealthEndpoint"]
+        D -- /api/customers/* --> F["CustomersEndpoints"]
+        D -- /api/chat --> G["ChatEndpoint"]
     end
 
     subgraph DI["DI Container (Scoped)"]
-        G["ICustomerService"]
-        H["CustomerService"]
-        G -. resolves to .-> H
+        H["ICustomerService"]
+        I["CustomerService"]
+        H -. resolves to .-> I
     end
 
-    F -- injects --> G
-    H -- reads --> I[("Static List&lt;Customer&gt;\n(In-Memory)")]
+    subgraph Agent["AI Agent (per-request)"]
+        J["Semantic Kernel"]
+        K["ChatCompletionAgent"]
+        L["CustomerPlugin"]
+        J --> K
+        K --> L
+    end
+
+    F -- injects --> H
+    G -- injects --> H
+    G -- creates --> J
+    L -- wraps --> H
+    I -- reads --> M[("Static List&lt;Customer&gt;\n(In-Memory)")]
+    K -- calls --> N["GitHub Models\n(gpt-4o-mini)"]
 
     subgraph Swagger["Swagger (Dev Only)"]
-        J["SwaggerGen"] --> K["SwaggerUI"]
+        O["SwaggerGen"] --> P["SwaggerUI"]
     end
 
     style Pipeline fill:#eef2ff,stroke:#6366f1
     style DI fill:#f0fdf4,stroke:#22c55e
+    style Agent fill:#fef3c7,stroke:#f59e0b
     style Swagger fill:#fefce8,stroke:#eab308
-    style I fill:#fee2e2,stroke:#ef4444
+    style M fill:#fee2e2,stroke:#ef4444
+    style N fill:#dbeafe,stroke:#3b82f6
     </div>
 </div>
 

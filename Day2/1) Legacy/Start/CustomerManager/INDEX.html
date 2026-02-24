@@ -172,7 +172,7 @@
 
 <header>
     <h1>&#128736; CustomerManager — Project Dashboard</h1>
-    <p>.NET 8 Legacy API &bull; Analysis &amp; Exploration Hub</p>
+    <p>.NET 8 Legacy API + AI Agent &bull; Analysis &amp; Exploration Hub</p>
 </header>
 
 <div class="status-bar">
@@ -180,6 +180,7 @@
     <span class="status-chip green"><span class="dot green"></span> Build Succeeded</span>
     <span class="status-chip blue"><span class="dot blue"></span> Server: http://localhost:5000</span>
     <span class="status-chip yellow"><span class="dot yellow"></span> API Health: <span id="health-status" class="checking">checking...</span></span>
+    <span class="status-chip blue"><span class="dot blue"></span> AI Agent: Semantic Kernel + GitHub Models</span>
 </div>
 
 <div class="dashboard">
@@ -302,8 +303,35 @@
                         <td>Delete customer by ID — use Swagger or curl</td>
                         <td><a href="http://localhost:5000/swagger/index.html" target="_blank">&#8599; Swagger</a></td>
                     </tr>
+                    <tr>
+                        <td><span class="method post" style="background:#8b5cf6;">POST</span></td>
+                        <td>/api/chat</td>
+                        <td>AI Agent — natural language customer management</td>
+                        <td><a href="#chat-section">&#8599; Try Below</a></td>
+                    </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- ============ AI Agent Chat ============ -->
+    <div class="card full-width" id="chat-section">
+        <div class="card-header">
+            <span class="icon">&#129302;</span>
+            <h2>AI Agent Chat</h2>
+        </div>
+        <div class="card-body">
+            <p>Chat with the AI agent in natural language. It uses Microsoft Agent Framework (Semantic Kernel) + GitHub Models to call customer tools automatically.</p>
+            <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+                <input id="chat-input" type="text" placeholder="e.g. Show me all customers" style="flex:1;padding:0.6rem 1rem;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:0.9rem;" onkeydown="if(event.key==='Enter')sendChat()">
+                <button onclick="sendChat()" style="padding:0.6rem 1.2rem;border-radius:6px;border:none;background:#8b5cf6;color:#fff;font-weight:600;cursor:pointer;font-size:0.9rem;">Send</button>
+            </div>
+            <div id="chat-output" style="margin-top:1rem;padding:1rem;border-radius:8px;background:#0f172a;border:1px solid #334155;min-height:60px;white-space:pre-wrap;font-size:0.88rem;color:#94a3b8;max-height:400px;overflow-y:auto;">
+                Agent replies will appear here...
+            </div>
+            <div style="margin-top:0.6rem;font-size:0.8rem;color:#64748b;">
+                <strong>Try:</strong> "List all customers" &bull; "Search for Jane" &bull; "Add a customer named Test User with email test@mail.com" &bull; "Delete customer 4"
+            </div>
         </div>
     </div>
 
@@ -322,12 +350,17 @@
                     <tr>
                         <td>Program.cs</td>
                         <td>Entry Point + Endpoints</td>
-                        <td>DI registration, Swagger, Minimal API endpoints (health + full CRUD)</td>
+                        <td>DI registration, Swagger, Minimal API endpoints (health + CRUD + AI chat)</td>
                     </tr>
                     <tr>
                         <td>Models/DomainModels.cs</td>
                         <td>Domain Models</td>
-                        <td>Customer, Order (unused), HealthResponse</td>
+                        <td>Customer, Order (unused), HealthResponse, ChatMessage, ChatRequest, ChatResponse</td>
+                    </tr>
+                    <tr>
+                        <td>Plugins/CustomerPlugin.cs</td>
+                        <td>AI Agent Tools</td>
+                        <td>6 [KernelFunction] tools wrapping ICustomerService for agent tool-calling</td>
                     </tr>
                     <tr>
                         <td>Services/CustomerService.cs</td>
@@ -342,7 +375,7 @@
                     <tr>
                         <td>CustomerManager.csproj</td>
                         <td>Project File</td>
-                        <td>.NET 8.0, Swashbuckle 6.4.0</td>
+                        <td>.NET 8.0, Swashbuckle 6.4.0, Semantic Kernel 1.72.0</td>
                     </tr>
                 </tbody>
             </table>
@@ -376,6 +409,37 @@
     }
     checkHealth();
     setInterval(checkHealth, 10000);
+
+    // AI Agent Chat
+    async function sendChat() {
+        const input = document.getElementById('chat-input');
+        const output = document.getElementById('chat-output');
+        const message = input.value.trim();
+        if (!message) return;
+
+        output.textContent = '⏳ Thinking...';
+        input.value = '';
+
+        try {
+            const res = await fetch('http://localhost:5000/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message }),
+                signal: AbortSignal.timeout(30000)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                output.textContent = data.reply || '(empty response)';
+                output.style.color = '#6ee7b7';
+            } else {
+                output.textContent = '❌ ' + (data || JSON.stringify(data));
+                output.style.color = '#fca5a5';
+            }
+        } catch (e) {
+            output.textContent = '❌ Error: ' + e.message;
+            output.style.color = '#fca5a5';
+        }
+    }
 </script>
 
 </body>

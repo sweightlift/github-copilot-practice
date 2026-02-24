@@ -9,8 +9,9 @@
 | **Architecture** | Minimal API (single-file endpoints in Program.cs) |
 | **Data Store** | In-memory static list (no real database) |
 | **API Docs** | Swagger / Swashbuckle (dev only) |
+| **AI Agent** | Microsoft Agent Framework (Semantic Kernel) + GitHub Models |
 
-A lightweight legacy-style REST API that manages customer data. Intended as a starting point for a refactoring / modernization exercise.
+A lightweight legacy-style REST API that manages customer data, enhanced with an AI-powered conversational agent that can execute CRUD operations via natural language. Intended as a starting point for a refactoring / modernization exercise.
 
 ---
 
@@ -18,11 +19,13 @@ A lightweight legacy-style REST API that manages customer data. Intended as a st
 
 ```
 CustomerManager/
-├── Program.cs                      # App entry point, DI config & all Minimal API endpoints
-├── CustomerManager.csproj          # Project file (.NET 8, Swashbuckle)
-├── appsettings.json                # Config (connection string, API key placeholder)
+├── Program.cs                      # App entry point, DI config, Minimal API endpoints & AI Agent chat
+├── CustomerManager.csproj          # Project file (.NET 8, Swashbuckle, Semantic Kernel)
+├── appsettings.json                # Config (connection string, API key, GitHub Models settings)
 ├── Models/
-│   └── DomainModels.cs             # Customer, Order, HealthResponse
+│   └── DomainModels.cs             # Customer, Order, HealthResponse, ChatMessage, ChatRequest, ChatResponse
+├── Plugins/
+│   └── CustomerPlugin.cs           # Semantic Kernel plugin — exposes CRUD as agent tools
 └── Services/
     └── CustomerService.cs          # Business logic + in-memory data
 ```
@@ -39,6 +42,7 @@ CustomerManager/
 - Swagger UI is only exposed in the **Development** environment.
 - **All endpoints defined inline as Minimal API** using `MapGet`, `MapPost`, `MapPut`, `MapDelete`.
 - Customer endpoints grouped under `app.MapGroup("/api/customers")`.
+- **AI Agent Chat endpoint** (`POST /api/chat`) — creates a Semantic Kernel `ChatCompletionAgent` connected to GitHub Models, with `CustomerPlugin` tools for automatic function calling.
 
 ### 2. Models (`DomainModels.cs`)
 
@@ -47,8 +51,26 @@ CustomerManager/
 | `Customer` | `Id`, `Name`, `Email`, `CreatedAt` | Core entity |
 | `Order` | `Id`, `CustomerId`, `Status`, `Amount`, `OrderDate` | **Defined but never used anywhere** |
 | `HealthResponse` | `Status`, `Message`, `Timestamp` | DTO for health endpoint |
+| `ChatMessage` | `Role`, `Content` | Chat history entry (user/assistant) |
+| `ChatRequest` | `Message`, `History` | Inbound chat request with optional history |
+| `ChatResponse` | `Reply`, `Timestamp` | Agent's response with timestamp |
 
-### 3. Services (`CustomerService.cs`)
+### 3. Plugins (`CustomerPlugin.cs`) — AI Agent Tools
+
+- Wraps `ICustomerService` methods as **Semantic Kernel functions** via `[KernelFunction]` + `[Description]` attributes.
+- Registered as a named plugin (`"CustomerManager"`) on the kernel.
+- The `ChatCompletionAgent` invokes these tools automatically based on user intent (`FunctionChoiceBehavior.Auto()`).
+
+| Tool Name | Description |
+|-----------|-------------|
+| `get_all_customers` | Returns the full customer list |
+| `get_customer_by_id` | Lookup by integer ID |
+| `search_customer` | Partial name search (case-insensitive) |
+| `add_customer` | Create a new customer (name + email) |
+| `update_customer` | Update name/email by ID |
+| `delete_customer` | Remove a customer by ID |
+
+### 4. Services (`CustomerService.cs`)
 
 - **Interface:** `ICustomerService` — `GetCustomer(int)`, `SearchCustomer(string)`, `GetAllCustomers()`, `AddCustomer(Customer)`, `UpdateCustomer(int, Customer)`, `DeleteCustomer(int)`
 - **Implementation:** `CustomerService`
@@ -60,9 +82,9 @@ CustomerManager/
   - `UpdateCustomer` — updates Name and Email for existing customer by ID.
   - `DeleteCustomer` — removes customer by ID, returns success/failure.
 
-### 4. Endpoints (Minimal API in Program.cs)
+### 5. Endpoints (Minimal API in Program.cs)
 
-#### Customer Endpoints (`/api/customers`)
+#### Customer Endpoints (`/api/customers`) — REST
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -76,7 +98,18 @@ CustomerManager/
 - All endpoints include input validation and return `400`/`404` as appropriate.
 - POST returns `201 Created` with a `Location` header.
 - DELETE returns `204 No Content` on success.
-- A `TODO` comment marks `GetCustomer` for conversion to an **Agent Tool** (Step 5).
+- ~~A `TODO` comment marks `GetCustomer` for conversion to an **Agent Tool** (Step 5).~~ **RESOLVED** — All CRUD operations are now exposed as Agent Tools via `CustomerPlugin`.
+
+#### AI Agent Chat Endpoint
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat` | POST | Natural language chat with AI agent — auto-calls customer tools |
+
+- Request body: `{ "message": "...", "history": [{ "role": "user|assistant", "content": "..." }] }`
+- Uses **GitHub Models** (`gpt-4o-mini` via `https://models.inference.ai.azure.com`).
+- Agent is powered by **Microsoft Semantic Kernel Agent Framework** with `ChatCompletionAgent`.
+- Tool calling is automatic: the LLM decides which `CustomerPlugin` function to invoke.
 
 #### Health Endpoint
 
@@ -92,7 +125,8 @@ CustomerManager/
 |-----|-------|--------|
 | `ConnectionStrings:LocalDb` | LocalDB / `LegacyDb` | **Not used** — data is in-memory |
 | `ApiSettings:ApiVersion` | `1.0.0` | Present but not referenced in code |
-| `GitHubModels:ApiKey` | *(empty)* | Placeholder — not used yet |
+| `GitHubModels:ApiKey` | *(user-provided)* | GitHub Personal Access Token with `models:read` permission |
+| `GitHubModels:ModelId` | `gpt-4o-mini` (default) | Optional — override the LLM model for the AI agent |
 
 ---
 
@@ -101,8 +135,10 @@ CustomerManager/
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `Swashbuckle.AspNetCore` | 6.4.0 | Swagger / OpenAPI generation |
+| `Microsoft.SemanticKernel` | 1.72.0 | Semantic Kernel core — AI orchestration, plugins, function calling |
+| `Microsoft.SemanticKernel.Agents.Core` | 1.72.0 | Agent Framework — `ChatCompletionAgent` with tool use |
 
-No other NuGet packages. No Entity Framework, no authentication, no logging framework beyond the built-in defaults.
+No Entity Framework, no authentication, no logging framework beyond the built-in defaults.
 
 ---
 
@@ -141,6 +177,7 @@ GET     /api/customers/{id}             → Customer | 400 | 404
 POST    /api/customers                  → 201 Created + Customer | 400
 PUT     /api/customers/{id}             → Customer | 400 | 404
 DELETE  /api/customers/{id}             → 204 No Content | 400 | 404
+POST    /api/chat                       → ChatResponse { reply, timestamp } | 400
 ```
 
 ---
@@ -153,5 +190,7 @@ DELETE  /api/customers/{id}             → 204 No Content | 400 | 404
 4. **Build out Orders** — Create `IOrderService` + `OrdersController` to use the `Order` model.
 5. **Add logging** — Inject `ILogger<T>` into controllers and services.
 6. **Add tests** — Create an xUnit/NUnit project with unit and integration tests.
-7. **Agent Tool conversion** — Follow the TODO in `CustomersController` to convert `GetCustomer` into an Agent Tool (Step 5 of the exercise).
+7. ~~**Agent Tool conversion** — Follow the TODO in `CustomersController` to convert `GetCustomer` into an Agent Tool (Step 5 of the exercise).~~ ✅ Done — All CRUD exposed via `CustomerPlugin` + `ChatCompletionAgent`.
 8. **Security** — Add authentication/authorization middleware.
+9. **Streaming chat** — Add SSE/streaming support for the chat endpoint.
+10. **Persistent chat history** — Store conversation history in a database.
