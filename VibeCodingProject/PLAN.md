@@ -206,12 +206,12 @@ public interface IExpenseService
 ## 7. Implementation Steps
 
 ### Phase 1: Backend Foundation
-- [ ] **Step 1:** Create this plan file (PLAN.md)
-- [ ] **Step 2:** Verify prerequisites (.NET 9, Node.js, npm)
-- [ ] **Step 3:** Scaffold .NET project — Models + IExpenseService interface
-- [ ] **Step 4:** Implement ExpenseService (CRUD + aggregation logic + seed data)
-- [ ] **Step 5:** Add Minimal API endpoints via ExpenseEndpoints.cs + Program.cs
-- [ ] **Step 6:** Test all REST endpoints manually (PowerShell)
+- [x] **Step 1:** Create this plan file (PLAN.md) ✅
+- [x] **Step 2:** Verify prerequisites (.NET 9.0.311, Node.js v24.13.1, npm 11.8.0) ✅
+- [x] **Step 3:** Scaffold .NET project — Models + IExpenseService interface ✅
+- [x] **Step 4:** Implement ExpenseService (CRUD + aggregation logic + 12 seed records) ✅
+- [x] **Step 5:** Add Minimal API endpoints via ExpenseEndpoints.cs + Program.cs ✅
+- [x] **Step 6:** Test all REST endpoints manually (PowerShell) ✅
 
 ### Phase 2: Testing
 - [ ] **Step 7:** Create xUnit test project
