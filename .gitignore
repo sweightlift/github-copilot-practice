@@ -2,6 +2,14 @@
 /.vscode
 /venv
 
+# JetBrains IDEs
+.idea/
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+
 # .NET Core
 bin/
 obj/
@@ -59,3 +67,4 @@ ScaffoldingReadMe.txt
 project.lock.json
 project.fragment.lock.json
 artifacts/
+
